@@ -6,32 +6,23 @@ try { require('dotenv').config({ path: path.resolve(__dirname, '../../frontend/.
 try { require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); } catch {}
 try { require('dotenv').config(); } catch {}
 
-const newsRoutes = require('./routes/news');
-const photosRoutes = require('./routes/photos');
-const authRoutes = require('./routes/auth');
-const aiRoutes = require('./routes/ai');
-const adsRoutes = require('./routes/ads');
-const rssRoutes = require('./routes/rss');
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-console.log('AI Engine:', process.env.GOOGLE_AI_API_KEY ? 'Gemini configurado' : (process.env.OPENAI_API_KEY ? 'OpenAI configurado' : 'Demo'));
-
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
-
-app.use('/api/news', newsRoutes);
-app.use('/api/photos', photosRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/ads', adsRoutes);
-app.use('/api/rss', rssRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Rutas con manejo de errores por si algún módulo falla
+try { app.use('/api/news', require('./routes/news')); } catch(e) { console.warn('news route failed:', e.message); }
+try { app.use('/api/photos', require('./routes/photos')); } catch(e) { console.warn('photos route failed:', e.message); }
+try { app.use('/api/auth', require('./routes/auth')); } catch(e) { console.warn('auth route failed:', e.message); }
+try { app.use('/api/ai', require('./routes/ai')); } catch(e) { console.warn('ai route failed:', e.message); }
+try { app.use('/api/ads', require('./routes/ads')); } catch(e) { console.warn('ads route failed:', e.message); }
+try { app.use('/api/rss', require('./routes/rss')); } catch(e) { console.warn('rss route failed:', e.message); }
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`NEXAA Backend running on port ${PORT}`);
