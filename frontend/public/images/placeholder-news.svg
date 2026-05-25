@@ -1,0 +1,7 @@
+<svg width="800" height="450" viewBox="0 0 800 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="450" fill="#f2f4f6"/>
+  <circle cx="400" cy="180" r="60" fill="#dbe1ff" opacity="0.6"/>
+  <text x="400" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="48" fill="#131b2e">NEXAA</text>
+  <text x="400" y="260" text-anchor="middle" font-family="Inter, sans-serif" font-weight="400" font-size="20" fill="#76777d">Región de Ñuble</text>
+  <circle cx="400" cy="350" r="4" fill="#316bf3"/>
+</svg>

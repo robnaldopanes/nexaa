@@ -1,0 +1,13 @@
+{
+  "name": "nexaa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NEXAA - Plataforma de noticias regionales con IA para Chile",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd frontend && npm run start",
+    "backend": "cd backend && npm run dev",
+    "lint": "cd frontend && npm run lint"
+  }
+}

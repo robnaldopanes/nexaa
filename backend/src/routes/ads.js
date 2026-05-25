@@ -1,0 +1,175 @@
+const express = require('express');
+const router = express.Router();
+const { supabase } = require('../utils/supabase');
+
+router.get('/', async (req, res) => {
+  try {
+    const { active } = req.query;
+    let query = supabase.from('ads').select('*').order('created_at', { ascending: false });
+    if (active) query = query.eq('is_active', active === 'true');
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/seed', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const brainDir = 'C:\\Users\\damian\\.gemini\\antigravity\\brain\\4be8ff7f-2741-425a-aeaf-0f5191ae86c7';
+
+    const files = fs.readdirSync(brainDir);
+    const principalFile = files.find(f => f.startsWith('nexaa_banner_principal_') && f.endsWith('.png'));
+    const lateralFile = files.find(f => f.startsWith('nexaa_banner_lateral_') && f.endsWith('.png'));
+    const noticiasFile = files.find(f => f.startsWith('nexaa_banner_noticias_') && f.endsWith('.png'));
+
+    if (!principalFile || !lateralFile || !noticiasFile) {
+      return res.status(400).json({ error: 'No se encontraron las imágenes generadas' });
+    }
+
+    const adsToSeed = [
+      {
+        name: 'Promoción NEXAA - Banner Principal',
+        location: 'Banner Principal',
+        fileName: principalFile,
+        link_url: 'https://nexaa.vercel.app/publicidad'
+      },
+      {
+        name: 'Promoción NEXAA - Barra Lateral',
+        location: 'Barra lateral',
+        fileName: lateralFile,
+        link_url: 'https://nexaa.vercel.app/publicidad'
+      },
+      {
+        name: 'Promoción NEXAA - Entre Noticias',
+        location: 'Entre noticias',
+        fileName: noticiasFile,
+        link_url: 'https://nexaa.vercel.app/publicidad'
+      }
+    ];
+
+    const results = [];
+    for (const adSpec of adsToSeed) {
+      const filePath = path.join(brainDir, adSpec.fileName);
+      const buffer = fs.readFileSync(filePath);
+      const base64 = `data:image/png;base64,${buffer.toString('base64')}`;
+
+      const adBody = {
+        name: adSpec.name,
+        location: adSpec.location,
+        image_url: base64,
+        link_url: adSpec.link_url,
+        is_active: true,
+        start_date: new Date().toISOString(),
+        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      };
+
+      const { data, error } = await supabase.from('ads').insert(adBody).select().single();
+      if (error) throw error;
+      results.push(data);
+    }
+
+    res.json({ success: true, seeded: results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/copy-favicon', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const srcPath = 'C:\\Users\\damian\\.gemini\\antigravity\\brain\\4be8ff7f-2741-425a-aeaf-0f5191ae86c7\\nexaa_favicon_1779660829090.png';
+    const destAppIcon = 'c:\\Users\\damian\\Desktop\\la clase\\nexa\\frontend\\src\\app\\icon.png';
+    const destPubIcon192 = 'c:\\Users\\damian\\Desktop\\la clase\\nexa\\frontend\\public\\images\\icon-192.png';
+    const destPubIcon512 = 'c:\\Users\\damian\\Desktop\\la clase\\nexa\\frontend\\public\\images\\icon-512.png';
+
+    // Create directory if it does not exist
+    const pubImagesDir = 'c:\\Users\\damian\\Desktop\\la clase\\nexa\\frontend\\public\\images';
+    if (!fs.existsSync(pubImagesDir)) {
+      fs.mkdirSync(pubImagesDir, { recursive: true });
+    }
+
+    // Copy files
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, destAppIcon);
+      fs.copyFileSync(srcPath, destPubIcon192);
+      fs.copyFileSync(srcPath, destPubIcon512);
+      res.json({ success: true, message: 'Favicon copiado con éxito en todos los directorios' });
+    } else {
+      res.status(404).json({ error: 'No se encontró el archivo de origen nexaa_favicon' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+router.post('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('ads').insert(req.body).select().single();
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('ads').update(req.body).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  try {
+    const { error } = await supabase.from('ads').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true, message: 'Anuncio eliminado correctamente' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:id/impression', async (req, res) => {
+  try {
+    const { data: ad, error: fetchError } = await supabase.from('ads').select('impressions').eq('id', req.params.id).single();
+    if (fetchError) throw fetchError;
+    
+    const newCount = (ad.impressions || 0) + 1;
+    const { error: updateError } = await supabase.from('ads').update({ impressions: newCount }).eq('id', req.params.id);
+    if (updateError) throw updateError;
+    
+    res.json({ success: true, impressions: newCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/:id/click', async (req, res) => {
+  try {
+    const { data: ad, error: fetchError } = await supabase.from('ads').select('clicks').eq('id', req.params.id).single();
+    if (fetchError) throw fetchError;
+    
+    const newCount = (ad.clicks || 0) + 1;
+    const { error: updateError } = await supabase.from('ads').update({ clicks: newCount }).eq('id', req.params.id);
+    if (updateError) throw updateError;
+    
+    res.json({ success: true, clicks: newCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+
+

@@ -1,0 +1,59 @@
+{
+  "name": "nexaa_rss_ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 15 }]
+        }
+      },
+      "id": "trigger-15min",
+      "name": "Cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3001/api/rss/fetch",
+        "method": "POST",
+        "sendBody": false,
+        "options": {}
+      },
+      "id": "fetch-rss",
+      "name": "Buscar RSS (sin IA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nconst msg = result.message || 'Sin novedades';\nconst total = result.total || 0;\nconst news = result.new || 0;\nconst dups = result.duplicates || 0;\n\nreturn [{\n  json: {\n    summary: `📥 Inbox RSS: ${msg}`,\n    total,\n    new: news,\n    duplicates: dups,\n    important: news > 0\n  }\n}];"
+      },
+      "id": "parse-result",
+      "name": "Procesar resultado",
+      "type": "n8n-nodes-base.code",
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "botToken": "={{$env.TELEGRAM_BOT_TOKEN}}",
+        "chatId": "={{$env.TELEGRAM_CHAT_ID}}",
+        "text": "=📥 {{$json.summary}}\n📊 {{$json.new}} nuevas | {{$json.duplicates}} duplicadas | {{$json.total}} totales\n🔗 Revisar: http://localhost:3000/admin/inbox"
+      },
+      "id": "notify-telegram",
+      "name": "Notificar Telegram (opcional)",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Cada 15 minutos": {
+      "main": [[{ "node": "Buscar RSS (sin IA)", "type": "main", "index": 0 }]]
+    },
+    "Buscar RSS (sin IA)": {
+      "main": [[{ "node": "Procesar resultado", "type": "main", "index": 0 }]]
+    },
+    "Procesar resultado": {
+      "main": [[{ "node": "Notificar Telegram (opcional)", "type": "main", "index": 0 }]]
+    }
+  }
+}
