@@ -30,7 +30,7 @@ app.use('/api/ads', adsRoutes);
 app.use('/api/rss', rssRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), engine: process.env.GOOGLE_AI_API_KEY ? 'gemini' : 'demo' });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
