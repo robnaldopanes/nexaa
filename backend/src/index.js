@@ -2,9 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-require('dotenv').config({ path: path.resolve(__dirname, '../../frontend/.env.local') });
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-require('dotenv').config();
+try { require('dotenv').config({ path: path.resolve(__dirname, '../../frontend/.env.local') }); } catch {}
+try { require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); } catch {}
+try { require('dotenv').config(); } catch {}
 
 const newsRoutes = require('./routes/news');
 const photosRoutes = require('./routes/photos');
@@ -33,6 +33,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), engine: process.env.GOOGLE_AI_API_KEY ? 'gemini' : 'demo' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`NEXAA Backend running on port ${PORT}`);
+}).on('error', (err) => {
+  console.error('Failed to start server:', err.message);
+  process.exit(1);
 });
