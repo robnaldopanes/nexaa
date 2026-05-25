@@ -1,3 +1,9 @@
+console.log('=== NEXAA BACKEND STARTING ===');
+console.log('Node version:', process.version);
+console.log('PORT env:', process.env.PORT);
+console.log('CWD:', process.cwd());
+console.log('__dirname:', __dirname);
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
