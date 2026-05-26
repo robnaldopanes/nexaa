@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiUrl } from '@/lib/utils';
+import { saveToken } from '@/lib/auth';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const apiUrl = getApiUrl();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,17 +19,22 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
-      // Demo mode: acepta cualquier email con 6+ caracteres y contraseña de 4+ caracteres
-      // En producción, reemplazar con Supabase Auth
-      await new Promise((r) => setTimeout(r, 800));
-      if (email.length >= 6 && password.length >= 4) {
-        if (typeof window !== 'undefined') sessionStorage.setItem('nexaa_admin_auth', 'true');
-        router.push('/admin/dashboard');
-      } else {
-        setError('Correo o contraseña inválidos');
+      const res = await fetch(`${apiUrl}/api/auth/admin-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al iniciar sesión');
       }
-    } catch {
-      setError('Error al iniciar sesión');
+
+      saveToken(data.token);
+      router.push('/admin/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
