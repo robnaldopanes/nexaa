@@ -162,7 +162,7 @@ export default function HomePage() {
             }
           } catch {}
           // Fallback: usar noticias locales si el endpoint falló
-          if (aiSummaries.length === 0 && latestData?.length > 0) {
+          if (aiSummaries.length === 0 && latestData && latestData.length > 0) {
             setAiSummaries(latestData.slice(0, 3).map((item, index) => ({
               number: `0${index + 1}`,
               text: cleanEllipsis(item.summary) || item.title,
