@@ -591,7 +591,7 @@ export default function InboxPage() {
                     type="button"
                     onClick={async () => {
                       try {
-                        const res = await fetch(`http://localhost:3001/api/rss/${editingItem.id}/scrape-image`, {
+                        const res = await fetch(`${apiUrl}/api/rss/${editingItem.id}/scrape-image`, {
                           method: 'POST',
                         });
                         const data = await res.json();
