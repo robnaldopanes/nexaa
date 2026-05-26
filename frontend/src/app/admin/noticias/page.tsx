@@ -26,6 +26,8 @@ export default function AdminNoticiasPage() {
   const [isBreaking, setIsBreaking] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageType, setImageType] = useState<'upload' | 'url'>('upload');
   const [manualPreview, setManualPreview] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedMsg, setPublishedMsg] = useState('');
@@ -177,6 +179,7 @@ export default function AdminNoticiasPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setImageFile(file);
+    setImageUrl('');
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
@@ -209,7 +212,8 @@ export default function AdminNoticiasPage() {
         tags: [],
         slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
       };
-      if (imageFile) body.image_url = imagePreview;
+      if (imageUrl.trim()) body.image_url = imageUrl.trim();
+      else if (imagePreview) body.image_url = imagePreview;
 
       const res = await fetch(`${apiUrl}/api/news`, {
         method: 'POST',
@@ -238,6 +242,8 @@ export default function AdminNoticiasPage() {
     setComuna('');
     setImagePreview(null);
     setImageFile(null);
+    setImageUrl('');
+    setImageType('upload');
     setIsFeatured(false);
     setIsBreaking(false);
 
@@ -455,26 +461,91 @@ export default function AdminNoticiasPage() {
             {/* Imagen */}
             <div>
               <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">Fotografía</label>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-              {imagePreview ? (
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high">
-                  <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => { setImagePreview(null); setImageFile(null); }}
-                    className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">close</span>
-                  </button>
-                </div>
-              ) : (
+
+              {/* Toggle origen de imagen */}
+              <div className="bg-surface-container-low rounded-xl p-1 border border-outline-variant/30 flex gap-1 mb-3">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full aspect-video bg-surface-container-high rounded-xl flex flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant hover:border-secondary transition-colors"
+                  type="button"
+                  onClick={() => {
+                    setImageType('upload');
+                    setImageUrl('');
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg text-label-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                    imageType === 'upload' ? 'bg-secondary text-on-secondary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high/50'
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-on-surface-variant text-[48px]">add_photo_alternate</span>
-                  <span className="text-label-md text-on-surface-variant">Clic para subir imagen</span>
-                  <span className="text-label-sm text-on-surface-variant/60">JPG, PNG o WebP</span>
+                  <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                  Subir archivo
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageType('url');
+                    setImageFile(null);
+                    setImagePreview(null);
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg text-label-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                    imageType === 'url' ? 'bg-secondary text-on-secondary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high/50'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">link</span>
+                  Pegar URL
+                </button>
+              </div>
+
+              {imageType === 'upload' ? (
+                <>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                  {imagePreview ? (
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high">
+                      <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => { setImagePreview(null); setImageFile(null); }}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full aspect-video bg-surface-container-high rounded-xl flex flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant hover:border-secondary transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-on-surface-variant text-[48px]">add_photo_alternate</span>
+                      <span className="text-label-md text-on-surface-variant">Clic para subir imagen</span>
+                      <span className="text-label-sm text-on-surface-variant/60">JPG, PNG o WebP</span>
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => {
+                      setImageUrl(e.target.value);
+                      setImagePreview(e.target.value);
+                    }}
+                    placeholder="https://ejemplo.com/imagen.jpg"
+                    className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
+                  />
+                  {imageUrl && (
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high border border-outline-variant/30">
+                      <img
+                        src={imageUrl}
+                        alt="Vista previa URL"
+                        className="w-full h-full object-cover"
+                        onError={() => { setImagePreview(null); }}
+                      />
+                      <button
+                        onClick={() => { setImageUrl(''); setImagePreview(null); }}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
