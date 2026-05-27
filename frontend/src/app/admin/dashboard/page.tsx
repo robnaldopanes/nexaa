@@ -3,76 +3,36 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getApiUrl } from '@/lib/utils';
+import { NewsItem, AdSpace } from '@/lib/types';
 
-const STATS = [
-  {
-    label: 'Visitas Hoy',
-    value: '12,842',
-    change: '+12%',
-    icon: 'visibility',
-    color: 'text-secondary',
-    bg: 'bg-secondary/10',
-    chipBg: 'bg-secondary-fixed',
-    chipColor: 'text-on-secondary-fixed-variant',
-  },
-  {
-    label: 'IA Pendientes',
-    value: '24',
-    change: 'Urgente',
-    icon: 'auto_awesome',
-    color: 'text-on-tertiary-container',
-    bg: 'bg-on-tertiary-container/10',
-    chipBg: 'bg-tertiary-fixed',
-    chipColor: 'text-on-tertiary-fixed-variant',
-  },
-  {
-    label: 'Anuncios Activos',
-    value: '08',
-    change: 'Estable',
-    icon: 'campaign',
-    color: 'text-on-primary-fixed-variant',
-    bg: 'bg-on-primary-fixed-variant/10',
-    chipBg: 'bg-surface-container-highest',
-    chipColor: 'text-on-surface-variant',
-  },
-];
+interface DashboardStats {
+  visitsToday: number;
+  pendingAI: number;
+  activeAds: number;
+}
 
-const MODERATION_ITEMS = [
-  {
-    id: '1',
-    source: 'Diario Concepción',
-    time: '2 min',
-    summary: '"Nuevos proyectos de infraestructura anunciados para Chillán Viejo enfocados en transporte público..."',
-    category: 'Regional',
-    status: 'pending',
-    image: 'https://images.unsplash.com/photo-1504711434969-e33886168d6c?w=80&q=80',
-  },
-  {
-    id: '2',
-    source: 'La Discusión',
-    time: '15 min',
-    summary: '"Actualización agrícola: Producción de vino en Ñuble crecerá un 5% esta temporada debido a..."',
-    category: 'Economía',
-    status: 'pending',
-    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=80&q=80',
-  },
-  {
-    id: '3',
-    source: 'Radio Ñuble',
-    time: '45 min',
-    summary: '"Cobertura en vivo: Servicios de emergencia regionales prueban nuevo sistema de alerta en San Carlos..."',
-    category: 'Emergencias',
-    status: 'approved',
-    image: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=80&q=80',
-  },
-];
+interface ModerationItem {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  source_url: string;
+  image_url: string;
+  category: string;
+  status: string;
+  detected_at: string;
+}
 
 export default function AdminDashboardPage() {
   const apiUrl = getApiUrl();
   const [syncing, setSyncing] = useState(false);
   const [synced, setSynced] = useState(false);
-  const [activeNational, setActiveNational] = useState<any | null>(null);
+  const [activeNational, setActiveNational] = useState<NewsItem | null>(null);
   const [loadingNational, setLoadingNational] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({ visitsToday: 0, pendingAI: 0, activeAds: 0 });
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [moderationItems, setModerationItems] = useState<ModerationItem[]>([]);
+  const [loadingModeration, setLoadingModeration] = useState(true);
 
   const loadActiveNational = async () => {
     setLoadingNational(true);
@@ -90,25 +50,69 @@ export default function AdminDashboardPage() {
     setLoadingNational(false);
   };
 
+  const loadStats = async () => {
+    setLoadingStats(true);
+    try {
+      const [newsRes, rssRes, adsRes] = await Promise.all([
+        fetch(`${apiUrl}/api/news/stats`).catch(() => null),
+        fetch(`${apiUrl}/api/rss/counts`).catch(() => null),
+        fetch(`${apiUrl}/api/ads?active=true`).catch(() => null),
+      ]);
+
+      let visitsToday = 0;
+      let pendingAI = 0;
+      let activeAds = 0;
+
+      if (newsRes?.ok) {
+        const newsData = await newsRes.json();
+        visitsToday = newsData.totalViews || 0;
+      }
+
+      if (rssRes?.ok) {
+        const rssData = await rssRes.json();
+        pendingAI = rssData.pending || 0;
+      }
+
+      if (adsRes?.ok) {
+        const adsData = await adsRes.json();
+        activeAds = Array.isArray(adsData) ? adsData.filter((a: AdSpace) => a.is_active).length : 0;
+      }
+
+      setStats({ visitsToday, pendingAI, activeAds });
+    } catch {
+      setStats({ visitsToday: 0, pendingAI: 0, activeAds: 0 });
+    }
+    setLoadingStats(false);
+  };
+
+  const loadModerationItems = async () => {
+    setLoadingModeration(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/rss?status=pending&limit=5`);
+      const { data } = await res.json();
+      setModerationItems(data || []);
+    } catch {
+      setModerationItems([]);
+    }
+    setLoadingModeration(false);
+  };
+
   const handleDemoteActiveNational = async () => {
     if (!activeNational) return;
     const confirmDemote = window.confirm('¿Estás seguro de que deseas quitar esta noticia de la portada como Destacado Nacional? Volverá al inbox de RSS como noticia pendiente.');
     if (!confirmDemote) return;
 
     try {
-      // 1. Encontrar el inbox item correspondiente
       const resInbox = await fetch(`${apiUrl}/api/rss/by-published/${activeNational.id}`);
       const inboxItem = await resInbox.json();
 
       if (inboxItem && inboxItem.id) {
-        // 2. Si existe en el inbox, hacemos el PUT para pasarlo a 'pending' (lo que desvincula y borra la noticia)
         await fetch(`${apiUrl}/api/rss/${inboxItem.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'pending' }),
         });
       } else {
-        // 3. Fallback si se subió manualmente: eliminarla de la tabla 'news'
         await fetch(`${apiUrl}/api/news/${activeNational.id}`, {
           method: 'DELETE',
         });
@@ -116,13 +120,15 @@ export default function AdminDashboardPage() {
       
       alert('Se ha removido el destacado nacional correctamente.');
       loadActiveNational();
-    } catch (err) {
+    } catch {
       alert('Error al desmarcar el destacado nacional.');
     }
   };
 
   useEffect(() => {
     loadActiveNational();
+    loadStats();
+    loadModerationItems();
   }, []);
 
   const handleSync = () => {
@@ -171,7 +177,38 @@ export default function AdminDashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-gutter mb-stack-lg">
-        {STATS.map((stat) => (
+        {[
+          {
+            label: 'Visitas Totales',
+            value: loadingStats ? '...' : stats.visitsToday.toLocaleString('es-CL'),
+            change: loadingStats ? '' : `${stats.visitsToday > 0 ? 'Datos reales' : 'Sin datos'}`,
+            icon: 'visibility',
+            color: 'text-secondary',
+            bg: 'bg-secondary/10',
+            chipBg: 'bg-secondary-fixed',
+            chipColor: 'text-on-secondary-fixed-variant',
+          },
+          {
+            label: 'IA Pendientes',
+            value: loadingStats ? '...' : stats.pendingAI.toString(),
+            change: loadingStats ? '' : (stats.pendingAI > 0 ? 'Urgente' : 'Al día'),
+            icon: 'auto_awesome',
+            color: 'text-on-tertiary-container',
+            bg: 'bg-on-tertiary-container/10',
+            chipBg: 'bg-tertiary-fixed',
+            chipColor: 'text-on-tertiary-fixed-variant',
+          },
+          {
+            label: 'Anuncios Activos',
+            value: loadingStats ? '...' : stats.activeAds.toString().padStart(2, '0'),
+            change: loadingStats ? '' : (stats.activeAds > 0 ? 'Estable' : 'Sin anuncios'),
+            icon: 'campaign',
+            color: 'text-on-primary-fixed-variant',
+            bg: 'bg-on-primary-fixed-variant/10',
+            chipBg: 'bg-surface-container-highest',
+            chipColor: 'text-on-surface-variant',
+          },
+        ].map((stat) => (
           <div
             key={stat.label}
             className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-gutter shadow-sm flex flex-col gap-2 group hover:border-secondary transition-colors duration-300"
@@ -198,7 +235,6 @@ export default function AdminDashboardPage() {
 
       {/* Widget Noticia Destacada Nacional Activa */}
       <div className="mb-stack-lg bg-gradient-to-br from-amber-500/5 via-surface-container-lowest to-surface-container-lowest border border-amber-400/40 rounded-2xl p-6 shadow-md relative overflow-hidden group hover:border-amber-400/80 transition-all duration-300">
-        {/* Background glow decorator */}
         <div className="absolute -right-16 -top-16 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl group-hover:bg-amber-400/15 transition-all" />
         
         <div className="flex items-center justify-between gap-4 mb-4 border-b border-outline-variant/30 pb-3">
@@ -337,81 +373,109 @@ export default function AdminDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/20">
-              {MODERATION_ITEMS.map((item) => (
-                <tr key={item.id} className="hover:bg-surface-container-lowest transition-colors group">
-                  <td className="px-gutter py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center text-primary font-bold overflow-hidden">
-                        <img src={item.image} alt={item.source} className="w-full h-full object-cover" />
-                      </div>
-                      <div>
-                        <p className="text-label-md font-label-md text-primary">{item.source}</p>
-                        <p className="text-label-sm text-on-surface-variant">{item.time}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-gutter py-4 hidden md:table-cell">
-                    <div className="max-w-xs">
-                      <p className="text-body-md text-on-surface-variant line-clamp-2 italic">{item.summary}</p>
-                    </div>
-                  </td>
-                  <td className="px-gutter py-4">
-                    <span className="px-3 py-1 bg-surface-container-highest text-on-surface text-label-sm rounded-full">
-                      {item.category}
-                    </span>
-                  </td>
-                  <td className="px-gutter py-4">
-                    <div className={`flex items-center gap-2 font-label-md ${
-                      item.status === 'pending' ? 'text-on-tertiary-container' : 'text-on-secondary-fixed-variant'
-                    }`}>
-                      <span className={`w-2 h-2 rounded-full ${
-                        item.status === 'pending' ? 'bg-on-tertiary-container' : 'bg-secondary'
-                      }`} />
-                      {item.status === 'pending' ? 'Pendiente' : 'Aprobado'}
-                    </div>
-                  </td>
-                  <td className="px-gutter py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      {item.status === 'pending' ? (
-                        <>
-                          <button className="p-2 bg-secondary text-on-secondary rounded-lg hover:bg-secondary/90 transition-all active:scale-90" aria-label="Aprobar noticia">
-                            <span className="material-symbols-outlined text-[18px]">check</span>
-                          </button>
-                          <button className="p-2 bg-error text-on-error rounded-lg hover:bg-error/90 transition-all active:scale-90" aria-label="Rechazar noticia">
-                            <span className="material-symbols-outlined text-[18px]">close</span>
-                          </button>
-                          <button className="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-all" aria-label="Editar noticia">
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button className="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-all" aria-label="Ver noticia">
-                            <span className="material-symbols-outlined text-[18px]">visibility</span>
-                          </button>
-                          <button className="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-all" aria-label="Ver historial">
-                            <span className="material-symbols-outlined text-[18px]">history</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
+              {loadingModeration ? (
+                <tr>
+                  <td colSpan={5} className="px-gutter py-8 text-center">
+                    <span className="material-symbols-outlined animate-spin text-secondary text-[24px]">progress_activity</span>
+                    <p className="text-body-md text-on-surface-variant mt-2">Cargando items de moderación...</p>
                   </td>
                 </tr>
-              ))}
+              ) : moderationItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-gutter py-8 text-center">
+                    <span className="material-symbols-outlined text-on-surface-variant text-[36px]">check_circle</span>
+                    <p className="text-body-md text-on-surface-variant mt-2">No hay items pendientes de moderación</p>
+                  </td>
+                </tr>
+              ) : (
+                moderationItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-surface-container-lowest transition-colors group">
+                    <td className="px-gutter py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center text-primary font-bold overflow-hidden">
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.source || ''} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="material-symbols-outlined text-[20px]">article</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-label-md font-label-md text-primary">{item.source || 'Fuente desconocida'}</p>
+                          <p className="text-label-sm text-on-surface-variant">{item.detected_at ? new Date(item.detected_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-gutter py-4 hidden md:table-cell">
+                      <div className="max-w-xs">
+                        <p className="text-body-md text-on-surface-variant line-clamp-2 italic">{item.title || item.summary || 'Sin resumen'}</p>
+                      </div>
+                    </td>
+                    <td className="px-gutter py-4">
+                      <span className="px-3 py-1 bg-surface-container-highest text-on-surface text-label-sm rounded-full">
+                        {item.category || 'Sin categoría'}
+                      </span>
+                    </td>
+                    <td className="px-gutter py-4">
+                      <div className="flex items-center gap-2 font-label-md text-on-tertiary-container">
+                        <span className="w-2 h-2 rounded-full bg-on-tertiary-container" />
+                        Pendiente
+                      </div>
+                    </td>
+                    <td className="px-gutter py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await fetch(`${apiUrl}/api/rss/${item.id}/approve`, { method: 'POST' });
+                              loadModerationItems();
+                              loadStats();
+                            } catch {}
+                          }}
+                          className="p-2 bg-secondary text-on-secondary rounded-lg hover:bg-secondary/90 transition-all active:scale-90" 
+                          aria-label="Aprobar noticia"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">check</span>
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await fetch(`${apiUrl}/api/rss/${item.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'ignored' }),
+                              });
+                              loadModerationItems();
+                              loadStats();
+                            } catch {}
+                          }}
+                          className="p-2 bg-error text-on-error rounded-lg hover:bg-error/90 transition-all active:scale-90" 
+                          aria-label="Rechazar noticia"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                        <Link
+                          href="/admin/inbox"
+                          className="p-2 border border-outline-variant rounded-lg hover:bg-surface-container transition-all"
+                          aria-label="Ver en inbox"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         <div className="px-gutter py-4 border-t border-outline-variant/30 bg-surface-container-low/20 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <span className="text-label-sm text-on-surface-variant">Mostrando 3 de 24 pendientes</span>
-          <div className="flex gap-2">
-            <button className="p-1 border border-outline-variant rounded hover:bg-surface-container-high disabled:opacity-30" disabled>
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <button className="p-1 border border-outline-variant rounded hover:bg-surface-container-high">
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
-          </div>
+          <span className="text-label-sm text-on-surface-variant">
+            {loadingModeration ? 'Cargando...' : `Mostrando ${moderationItems.length} de ${stats.pendingAI} pendientes`}
+          </span>
+          <Link href="/admin/inbox" className="text-label-sm text-primary hover:underline">
+            Ver todos en Inbox →
+          </Link>
         </div>
       </div>
 

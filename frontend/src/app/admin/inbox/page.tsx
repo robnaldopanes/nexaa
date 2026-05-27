@@ -3,20 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CATEGORIES, COMUNAS } from '@/lib/constants';
 import { getApiUrl } from '@/lib/utils';
-
-interface InboxItem {
-  id: string;
-  title: string;
-  source: string;
-  source_url: string;
-  image_url: string;
-  summary: string;
-  category: string;
-  status: 'pending' | 'approved' | 'ignored' | 'published';
-  detected_at: string;
-  is_duplicate: boolean;
-  comuna: string | null;
-}
+import { NewsItem, InboxItem } from '@/lib/types';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
@@ -42,7 +29,7 @@ export default function InboxPage() {
   const [filter, setFilter] = useState('pending');
   const [fetching, setFetching] = useState(false);
   const [counts, setCounts] = useState({ pending: 0, approved: 0, ignored: 0, total: 0 });
-  const [activeNational, setActiveNational] = useState<any | null>(null);
+  const [activeNational, setActiveNational] = useState<NewsItem | null>(null);
   const [loadingNational, setLoadingNational] = useState(true);
   const [scrapingImageId, setScrapingImageId] = useState<string | null>(null);
 

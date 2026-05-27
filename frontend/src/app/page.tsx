@@ -14,38 +14,7 @@ import NewsCard from '@/components/news/NewsCard';
 import PhotoGallery from '@/components/news/PhotoGallery';
 import { supabase } from '@/lib/supabase';
 import { getNewsImage, formatDate, cleanEllipsis, getApiUrl } from '@/lib/utils';
-
-interface NewsItem {
-  id: string;
-  title: string;
-  summary: string;
-  content: string;
-  image_url: string;
-  source_url: string;
-  source_name: string;
-  category: string;
-  comuna: string;
-  tags: string[];
-  is_featured: boolean;
-  is_breaking: boolean;
-  is_approved: boolean;
-  is_published: boolean;
-  ai_generated: boolean;
-  published_at: string;
-  created_at: string;
-  views: number;
-  slug: string;
-}
-
-interface PhotoItem {
-  id: string;
-  title: string;
-  description: string;
-  image_url: string;
-  photographer: string;
-  comuna: string;
-  category: string;
-}
+import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
 
 export default function HomePage() {
   const router = useRouter();
@@ -55,7 +24,7 @@ export default function HomePage() {
   const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(null);
   const [aiSummaries, setAiSummaries] = useState<{ number: string; text: string }[]>([]);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
-  const [ads, setAds] = useState<any[]>([]);
+  const [ads, setAds] = useState<AdSpace[]>([]);
   const [loading, setLoading] = useState(true);
   const apiUrl = getApiUrl();
 
@@ -173,10 +142,12 @@ export default function HomePage() {
         const { data: photosData } = await supabase.from('photos').select('*')
           .eq('is_approved', true).order('created_at', { ascending: false }).limit(4);
         if (photosData && photosData.length > 0) {
-          setPhotos(photosData.map((p: any) => ({
+          setPhotos(photosData.map((p) => ({
             id: p.id, title: p.title || 'Fotografía de Ñuble', description: p.description || '',
             image_url: p.image_url, photographer: p.photographer || 'Colaborador',
-            comuna: p.comuna || 'Ñuble', category: p.category || 'General'
+            comuna: p.comuna || 'Ñuble', category: p.category || 'General',
+            likes: p.likes || 0, is_approved: p.is_approved ?? true, is_featured: p.is_featured ?? false,
+            created_at: p.created_at || new Date().toISOString()
           })));
         }
 
@@ -195,7 +166,7 @@ export default function HomePage() {
               }
             }
             setAds(activeAds || []);
-            activeAds.forEach((ad: any) => {
+            activeAds.forEach((ad: AdSpace) => {
               fetch(`${apiUrl}/api/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
             });
           }
@@ -221,7 +192,7 @@ export default function HomePage() {
               <CategoryChips onSelect={handleCategorySubmit} />
             </section>
 
-            {ads.filter((a: any) => a.is_active && a.location === 'Banner Principal').slice(0, 1).map((ad: any) => (
+            {ads.filter((a) => a.is_active && a.location === 'Banner Principal').slice(0, 1).map((ad) => (
               <div key={ad.id} className="px-margin-mobile mt-stack-sm">
                 <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-24 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
                   <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
@@ -279,7 +250,7 @@ export default function HomePage() {
               {latestNews.map((news, idx) => (
                 <div key={news.id}>
                   <NewsCard news={news} variant="horizontal" />
-                  {idx === 1 && ads.filter((a: any) => a.is_active && a.location === 'Entre noticias').slice(0, 1).map((ad: any) => (
+                  {idx === 1 && ads.filter((a) => a.is_active && a.location === 'Entre noticias').slice(0, 1).map((ad) => (
                     <div key={ad.id} className="mt-gutter">
                       <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
                         <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
@@ -293,7 +264,7 @@ export default function HomePage() {
 
             <section className="mt-stack-lg px-margin-mobile">
               <SectionHeader title="Miradas de Ñuble" viewAllLink="/fotos" />
-              {ads.filter((a: any) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad: any) => (
+              {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
                 <div key={ad.id} className="mb-3">
                   <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
                     <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />

@@ -69,3 +69,17 @@ export interface UserSubmission {
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
 }
+
+export interface InboxItem {
+  id: string;
+  title: string;
+  source: string;
+  source_url: string;
+  image_url: string;
+  summary: string;
+  category: string;
+  status: 'pending' | 'approved' | 'ignored' | 'published';
+  detected_at: string;
+  is_duplicate: boolean;
+  comuna: string | null;
+}

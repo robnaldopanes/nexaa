@@ -7,28 +7,7 @@ import Footer from '@/components/layout/Footer';
 import NewsCard from '@/components/news/NewsCard';
 import { COMUNAS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
-
-interface NewsItem {
-  id: string;
-  title: string;
-  summary: string;
-  content: string;
-  image_url: string;
-  source_url: string;
-  source_name: string;
-  category: string;
-  comuna: string;
-  tags: string[];
-  is_featured: boolean;
-  is_breaking: boolean;
-  is_approved: boolean;
-  is_published: boolean;
-  ai_generated: boolean;
-  published_at: string;
-  created_at: string;
-  views: number;
-  slug: string;
-}
+import { NewsItem } from '@/lib/types';
 
 export default function ComunaPage({ params }: { params: { slug: string } }) {
   const comuna = COMUNAS.find((c) => c.slug === params.slug);

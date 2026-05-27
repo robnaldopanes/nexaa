@@ -2,16 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { CATEGORIES, COMUNAS } from '@/lib/constants';
-import { addPublishedNews } from '@/lib/localStore';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
+import { NewsItem } from '@/lib/types';
 
 export default function AdminNoticiasPage() {
   const apiUrl = getApiUrl();
   const [mode, setMode] = useState<'ai' | 'manual'>('ai');
   const [url, setUrl] = useState('');
   const [loadingAI, setLoadingAI] = useState(false);
-  const [previewAI, setPreviewAI] = useState<any>(null);
+  const [previewAI, setPreviewAI] = useState<{ generated?: any; original?: any; error?: string } | null>(null);
   const [aiIsFeatured, setAiIsFeatured] = useState(false);
   const [aiIsBreaking, setAiIsBreaking] = useState(false);
   const [publishingAI, setPublishingAI] = useState(false);
@@ -31,9 +31,9 @@ export default function AdminNoticiasPage() {
   const [manualPreview, setManualPreview] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedMsg, setPublishedMsg] = useState('');
-  const [publishedList, setPublishedList] = useState<any[]>([]);
+  const [publishedList, setPublishedList] = useState<NewsItem[]>([]);
   const [loadingNews, setLoadingNews] = useState(true);
-  const [editingNewsItem, setEditingNewsItem] = useState<any | null>(null);
+  const [editingNewsItem, setEditingNewsItem] = useState<NewsItem | null>(null);
   const [editNewsTitle, setEditNewsTitle] = useState('');
   const [editNewsContent, setEditNewsContent] = useState('');
   const [editNewsSummary, setEditNewsSummary] = useState('');
@@ -64,7 +64,7 @@ export default function AdminNoticiasPage() {
     loadPublishedNews();
   }, []);
 
-  const openEditNewsModal = (item: any) => {
+  const openEditNewsModal = (item: NewsItem) => {
     setEditingNewsItem(item);
     setEditNewsTitle(item.title || '');
     setEditNewsContent(item.content || '');
@@ -123,8 +123,9 @@ export default function AdminNoticiasPage() {
       });
       const data = await res.json();
       setPreviewAI(data);
-    } catch (err: any) {
-      setPreviewAI({ error: err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      setPreviewAI({ error: message });
     } finally {
       setLoadingAI(false);
     }
@@ -168,8 +169,9 @@ export default function AdminNoticiasPage() {
       setPublishedMsg('¡Noticia generada por IA publicada correctamente!');
       loadPublishedNews();
       setTimeout(() => setPublishedMsg(''), 4000);
-    } catch (err: any) {
-      alert(`Error al publicar la noticia: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      alert(`Error al publicar la noticia: ${message}`);
     } finally {
       setPublishingAI(false);
     }
@@ -197,7 +199,7 @@ export default function AdminNoticiasPage() {
 
     try {
       // Intentar guardar en backend
-      const body: any = {
+      const body: Record<string, unknown> = {
         title: title.trim(),
         content: content.trim(),
         summary: summary.trim() || title.trim(),
@@ -226,10 +228,28 @@ export default function AdminNoticiasPage() {
       setPublishedMsg('¡Noticia publicada correctamente!');
     } catch {
       // Modo local: guardar en la lista visible
-      setPublishedList(prev => [
-        { title: title.trim(), status: 'Publicado', views: 0, date: 'Ahora' },
-        ...prev,
-      ]);
+      const localNews: NewsItem = {
+        id: `local-${Date.now()}`,
+        title: title.trim(),
+        summary: summary.trim() || title.trim(),
+        content: content.trim(),
+        image_url: imagePreview || '',
+        source_url: '',
+        source_name: 'NEXAA - Manual',
+        category: category || 'Regional',
+        comuna: comuna || 'Ñuble',
+        tags: [],
+        is_featured: isFeatured,
+        is_breaking: isBreaking,
+        is_approved: true,
+        is_published: true,
+        ai_generated: false,
+        published_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        views: 0,
+        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
+      };
+      setPublishedList(prev => [localNews, ...prev]);
       setPublishedMsg('Noticia guardada localmente (Supabase no configurado).');
     }
 

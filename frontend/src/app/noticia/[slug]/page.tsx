@@ -7,22 +7,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import { getNewsImage, getCategoryIcon, cleanEllipsis } from '@/lib/utils';
-
-interface NewsItem {
-  id: string;
-  title: string;
-  summary: string;
-  content: string;
-  image_url: string;
-  source_url: string;
-  source_name: string;
-  category: string;
-  comuna: string;
-  tags: string[];
-  views: number;
-  published_at: string;
-  slug: string;
-}
+import { NewsItem } from '@/lib/types';
 
 function timeAgo(dateStr: string) {
   try {

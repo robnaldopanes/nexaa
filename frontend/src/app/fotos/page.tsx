@@ -9,21 +9,19 @@ import PhotoGallery from '@/components/news/PhotoGallery';
 import { COMUNAS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
+import { PhotoItem } from '@/lib/types';
 
-interface PhotoItem {
+interface GalleryPhoto {
   id: string;
-  title: string;
-  description: string;
   image_url: string;
-  photographer: string;
+  alt: string;
+  title: string;
   comuna: string;
-  category: string;
-  is_featured: boolean;
-  is_approved: boolean;
-  created_at: string;
+  photographer?: string;
+  description?: string;
 }
 
-const DEFAULT_FEATURED_PHOTO = {
+const DEFAULT_FEATURED_PHOTO: GalleryPhoto = {
   id: 'fp1',
   image_url: 'https://images.unsplash.com/photo-1578518451874-5f4885f3880c?w=1200&q=80',
   alt: 'Nevados de Chillán al amanecer',
@@ -31,7 +29,7 @@ const DEFAULT_FEATURED_PHOTO = {
   comuna: 'Pinto',
 };
 
-const DEFAULT_PHOTOS = [
+const DEFAULT_PHOTOS: GalleryPhoto[] = [
   { id: 'g1', image_url: 'https://images.unsplash.com/photo-1518391846015-55a9cc003b25?w=600&q=80', alt: 'Catedral de Chillán', title: 'Arquitectura brutalista', comuna: 'Chillán' },
   { id: 'g2', image_url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&q=80', alt: 'Bosque nativo', title: 'Reserva Nacional Ñuble', comuna: 'San Fabián' },
   { id: 'g3', image_url: 'https://images.unsplash.com/photo-1500076656116-558758c991c1?w=600&q=80', alt: 'Valle del Itata', title: 'Viñedos del Itata', comuna: 'Coelemu' },
@@ -40,8 +38,8 @@ const DEFAULT_PHOTOS = [
 
 export default function PhotosPage() {
   const apiUrl = getApiUrl();
-  const [featuredPhoto, setFeaturedPhoto] = useState<any>(DEFAULT_FEATURED_PHOTO);
-  const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
+  const [featuredPhoto, setFeaturedPhoto] = useState<GalleryPhoto>(DEFAULT_FEATURED_PHOTO);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
