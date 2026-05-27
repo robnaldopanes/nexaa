@@ -96,7 +96,7 @@ async function askGemini(prompt) {
   const apiKey = process.env.GOOGLE_AI_API_KEY;
   if (!apiKey || apiKey.startsWith('tu-')) throw new Error('No Gemini key');
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   const result = await model.generateContent(prompt);
   return result.response.text();
 }
