@@ -5,8 +5,22 @@ import HomeClient from '@/components/home/HomeClient';
 
 export const revalidate = 60;
 
-async function fetchNational(): Promise<NewsItem | null> {
+async function withTimeout<T>(fn: () => Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms);
+  });
   try {
+    return await Promise.race([fn(), timeout]);
+  } catch {
+    return fallback;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+async function fetchNational(): Promise<NewsItem | null> {
+  return withTimeout(async () => {
     const { data } = await supabaseServer
       .from('news')
       .select('*')
@@ -17,13 +31,11 @@ async function fetchNational(): Promise<NewsItem | null> {
       .order('published_at', { ascending: false })
       .limit(1);
     return data && data.length > 0 ? data[0] : null;
-  } catch {
-    return null;
-  }
+  }, 8000, null);
 }
 
 async function fetchFeatured(): Promise<NewsItem[]> {
-  try {
+  return withTimeout(async () => {
     const { data } = await supabaseServer
       .from('news')
       .select('*')
@@ -34,7 +46,6 @@ async function fetchFeatured(): Promise<NewsItem[]> {
 
     let list = data || [];
 
-    // Fallback: breaking news
     if (list.length === 0) {
       const { data: breaking } = await supabaseServer
         .from('news')
@@ -46,7 +57,6 @@ async function fetchFeatured(): Promise<NewsItem[]> {
       list = breaking || [];
     }
 
-    // Fallback: latest
     if (list.length === 0) {
       const { data: fallback } = await supabaseServer
         .from('news')
@@ -59,13 +69,11 @@ async function fetchFeatured(): Promise<NewsItem[]> {
     }
 
     return list.slice(0, 5);
-  } catch {
-    return [];
-  }
+  }, 15000, []);
 }
 
 async function fetchLatest(): Promise<NewsItem[]> {
-  try {
+  return withTimeout(async () => {
     const { data } = await supabaseServer
       .from('news')
       .select('*')
@@ -74,13 +82,11 @@ async function fetchLatest(): Promise<NewsItem[]> {
       .order('published_at', { ascending: false })
       .limit(12);
     return data || [];
-  } catch {
-    return [];
-  }
+  }, 8000, []);
 }
 
 async function fetchPhotos(): Promise<PhotoItem[]> {
-  try {
+  return withTimeout(async () => {
     const { data } = await supabaseServer
       .from('photos')
       .select('*')
@@ -103,20 +109,17 @@ async function fetchPhotos(): Promise<PhotoItem[]> {
       is_featured: p.is_featured ?? false,
       created_at: p.created_at || new Date().toISOString(),
     }));
-  } catch {
-    return [];
-  }
+  }, 8000, []);
 }
 
 async function fetchAds(): Promise<AdSpace[]> {
-  try {
+  return withTimeout(async () => {
     const apiUrl = getApiUrl();
     const res = await fetch(`${apiUrl}/api/ads?active=true`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
 
     let activeAds = await res.json();
 
-    // Seed si no hay ads
     if (!activeAds || activeAds.length === 0) {
       const resSeed = await fetch(`${apiUrl}/api/ads/seed`);
       if (resSeed.ok) {
@@ -129,9 +132,7 @@ async function fetchAds(): Promise<AdSpace[]> {
     }
 
     return activeAds || [];
-  } catch {
-    return [];
-  }
+  }, 8000, []);
 }
 
 export default async function HomePage() {
@@ -143,13 +144,11 @@ export default async function HomePage() {
     fetchAds(),
   ]);
 
-  // Filtrar featured para excluir national
   let featuredList = featured;
   if (national) {
     featuredList = featuredList.filter((item) => item.id !== national.id);
   }
 
-  // Filtrar latest para excluir featured y national
   let latestList = latest;
   const featuredIds = new Set(featuredList.map((item) => item.id));
   if (featuredIds.size > 0) {
@@ -160,7 +159,6 @@ export default async function HomePage() {
   }
   latestList = latestList.slice(0, 5);
 
-  // Si no hay featured, usar el primero de latest
   if (featuredList.length === 0 && latestList.length > 0) {
     featuredList = [latestList[0]];
     latestList = latestList.slice(1);
