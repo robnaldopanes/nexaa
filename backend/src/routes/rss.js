@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { supabase, HAS_VALID_CONFIG } = require('../utils/supabase');
-const { fetchAllFeeds, scrapeWebPage } = require('../services/rssFetcher');
+const { fetchAllFeeds } = require('../services/rssFetcher');
 const { checkDuplicate } = require('../services/duplicateFilter');
 
 function noSupabase(res) {
@@ -308,21 +308,6 @@ router.post('/:id/approve', async (req, res) => {
       .replace(/^-+|-+$/g, '')
       .slice(0, 100);
 
-    // Intentar extraer la imagen de la noticia original mediante scraping si no viene en el RSS
-    let finalImageUrl = inboxItem.image_url || '';
-    if (!finalImageUrl && inboxItem.source_url) {
-      try {
-        console.log(`Scraping source URL for image: ${inboxItem.source_url}`);
-        const scraped = await scrapeWebPage(inboxItem.source_url);
-        if (scraped && scraped.imageUrl) {
-          finalImageUrl = scraped.imageUrl;
-          console.log(`Successfully scraped image from source: ${finalImageUrl}`);
-        }
-      } catch (e) {
-        console.warn(`Could not scrape image from source URL: ${e.message}`);
-      }
-    }
-
     // Crear noticia real
     const { data: newsItem, error: insertError } = await supabase
       .from('news')
@@ -330,7 +315,7 @@ router.post('/:id/approve', async (req, res) => {
         title: inboxItem.title,
         summary: inboxItem.summary || '',
         content: inboxItem.content || '',
-        image_url: finalImageUrl,
+        image_url: inboxItem.image_url || '',
         source_url: inboxItem.source_url || '',
         source_name: inboxItem.source,
         category: inboxItem.category || 'Regional',
@@ -356,51 +341,11 @@ router.post('/:id/approve', async (req, res) => {
         published_news_id: newsItem.id, 
         imported_at: new Date().toISOString(),
         comuna: is_national ? 'Nacional' : inboxItem.comuna,
-        image_url: finalImageUrl
+        image_url: inboxItem.image_url || ''
       })
       .eq('id', req.params.id);
 
     res.json({ inbox: inboxItem, published: newsItem });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST: autodetectar y guardar imagen del item
-router.post('/:id/scrape-image', async (req, res) => {
-  try {
-    if (!HAS_VALID_CONFIG) return res.status(503).json({ error: 'Supabase no configurado' });
-
-    const { data: item, error: fetchError } = await supabase
-      .from('news_inbox')
-      .select('source_url, image_url')
-      .eq('id', req.params.id)
-      .single();
-
-    if (fetchError || !item) {
-      return res.status(404).json({ error: 'Item no encontrado' });
-    }
-
-    if (!item.source_url) {
-      return res.status(400).json({ error: 'El item no tiene una URL de origen para extraer imágenes' });
-    }
-
-    console.log(`Scraping image for item ${req.params.id} from: ${item.source_url}`);
-    const scraped = await scrapeWebPage(item.source_url);
-    if (!scraped || !scraped.imageUrl) {
-      return res.status(404).json({ error: 'No se pudo detectar ninguna imagen en la página de origen' });
-    }
-
-    const { data: updated, error: updateError } = await supabase
-      .from('news_inbox')
-      .update({ image_url: scraped.imageUrl })
-      .eq('id', req.params.id)
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
-
-    res.json({ success: true, image_url: scraped.imageUrl, item: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

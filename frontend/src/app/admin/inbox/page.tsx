@@ -31,7 +31,6 @@ export default function InboxPage() {
   const [counts, setCounts] = useState({ pending: 0, approved: 0, ignored: 0, total: 0 });
   const [activeNational, setActiveNational] = useState<NewsItem | null>(null);
   const [loadingNational, setLoadingNational] = useState(true);
-  const [scrapingImageId, setScrapingImageId] = useState<string | null>(null);
 
   const [editingItem, setEditingItem] = useState<InboxItem | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -181,27 +180,6 @@ export default function InboxPage() {
       loadCounts();
       loadActiveNational();
     } catch { alert('Error al procesar'); }
-  };
-
-  const handleScrapeImage = async (id: string) => {
-    setScrapingImageId(id);
-    try {
-      const res = await fetch(`${apiUrl}/api/rss/${id}/scrape-image`, {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (res.ok && data.image_url) {
-        alert('Imagen autodetectada y guardada con éxito.');
-        loadItems();
-        loadCounts();
-      } else {
-        alert(data.error || 'No se pudo detectar ninguna imagen para esta noticia.');
-      }
-    } catch (err) {
-      alert('Error de red al intentar buscar la imagen.');
-    } finally {
-      setScrapingImageId(null);
-    }
   };
 
   return (
@@ -454,16 +432,6 @@ export default function InboxPage() {
                     {item.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => handleScrapeImage(item.id)}
-                          disabled={scrapingImageId === item.id}
-                          className="px-3 py-1.5 border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary rounded-lg text-label-sm font-label-sm transition-colors flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                        >
-                          <span className={`material-symbols-outlined text-[16px] ${scrapingImageId === item.id ? 'animate-spin' : ''}`}>
-                            {scrapingImageId === item.id ? 'progress_activity' : 'image_search'}
-                          </span>
-                          {scrapingImageId === item.id ? 'Buscando...' : 'Buscar imagen'}
-                        </button>
-                        <button
                           onClick={() => openEditModal(item)}
                           className="px-3 py-1.5 border border-secondary/30 bg-secondary/5 hover:bg-secondary/10 text-secondary rounded-lg text-label-sm font-label-sm transition-colors flex items-center gap-1 active:scale-95"
                         >
@@ -572,30 +540,8 @@ export default function InboxPage() {
                     value={editImageUrl}
                     onChange={(e) => setEditImageUrl(e.target.value)}
                     placeholder="https://ejemplo.cl/ruta-a-la-imagen.jpg"
-                    className="flex-1 min-w-0 px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
+                    className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
                   />
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`${apiUrl}/api/rss/${editingItem.id}/scrape-image`, {
-                          method: 'POST',
-                        });
-                        const data = await res.json();
-                        if (res.ok && data.image_url) {
-                          setEditImageUrl(data.image_url);
-                        } else {
-                          alert(data.error || 'No se pudo autodetectar la imagen.');
-                        }
-                      } catch {
-                        alert('Error de red al autodetectar la imagen.');
-                      }
-                    }}
-                    className="px-4 py-2.5 bg-secondary/15 hover:bg-secondary/20 text-secondary border border-secondary/20 rounded-xl text-label-md font-bold transition-all flex items-center gap-1.5 active:scale-95 flex-shrink-0"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">image_search</span>
-                    Autodetectar
-                  </button>
                 </div>
                 {editImageUrl && editImageUrl.startsWith('http') && (
                   <div className="mt-2 relative aspect-video w-48 rounded-lg overflow-hidden bg-surface-container-high border border-outline-variant/30">

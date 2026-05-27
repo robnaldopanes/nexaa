@@ -133,35 +133,9 @@ async function scrapeWebPage(url) {
 
     const content = paragraphs.join('\n\n') || $('body').text().replace(/\s+/g, ' ').trim().slice(0, 1500);
 
-    // Extraer imagen destacada (og:image)
-    let imageUrl = $('meta[property="og:image"]').attr('content') || $('meta[name="twitter:image"]').attr('content') || null;
-    if (imageUrl) {
-      const isGoogleImage = imageUrl.includes('googleusercontent.com') || 
-                            imageUrl.includes('google.com') || 
-                            imageUrl.includes('gstatic.com');
-      if (isGoogleImage) imageUrl = null;
-    }
-
-    if (!imageUrl) {
-      // Intentar primer elemento img con URL absoluta
-      $('img').each((i, el) => {
-        const src = $(el).attr('src');
-        if (src && src.startsWith('http')) {
-          const isGoogleImage = src.includes('googleusercontent.com') || 
-                                src.includes('google.com') || 
-                                src.includes('gstatic.com');
-          if (!isGoogleImage) {
-            imageUrl = src;
-            return false; // Salir del loop
-          }
-        }
-      });
-    }
-
     return {
       title: title.trim(),
       content: content.trim().slice(0, 3000),
-      imageUrl,
       sourceUrl: url,
     };
   } catch (err) {
