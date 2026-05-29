@@ -198,7 +198,24 @@ export default function AdminNoticiasPage() {
     setPublishing(true);
 
     try {
-      // Intentar guardar en backend
+      // Subir imagen si es un archivo local (base64)
+      let finalImageUrl = imageUrl.trim();
+      if (!finalImageUrl && imagePreview && imagePreview.startsWith('data:image')) {
+        try {
+          const uploadRes = await fetch(`${apiUrl}/api/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imagePreview }),
+          });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            finalImageUrl = uploadData.url;
+          }
+        } catch (uploadErr) {
+          console.error('Error subiendo imagen:', uploadErr);
+        }
+      }
+
       const body: Record<string, unknown> = {
         title: title.trim(),
         content: content.trim(),
@@ -214,8 +231,7 @@ export default function AdminNoticiasPage() {
         tags: [],
         slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
       };
-      if (imageUrl.trim()) body.image_url = imageUrl.trim();
-      else if (imagePreview) body.image_url = imagePreview;
+      if (finalImageUrl) body.image_url = finalImageUrl;
 
       const res = await fetch(`${apiUrl}/api/news`, {
         method: 'POST',
@@ -233,7 +249,7 @@ export default function AdminNoticiasPage() {
         title: title.trim(),
         summary: summary.trim() || title.trim(),
         content: content.trim(),
-        image_url: imagePreview || '',
+        image_url: imageUrl.trim() || imagePreview || '',
         source_url: '',
         source_name: 'NEXAA - Manual',
         category: category || 'Regional',
