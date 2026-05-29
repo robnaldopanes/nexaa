@@ -1,11 +1,29 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { formatDate, getNewsImage, getCategoryIcon } from '@/lib/utils';
+import { formatDate, getNewsImage, getCategoryIcon, isDataUrl } from '@/lib/utils';
 import type { NewsItem } from '@/lib/types';
 
 interface NewsCardProps {
   news: NewsItem;
   variant?: 'horizontal' | 'vertical' | 'featured';
+}
+
+function NewsImage({ src, alt, fill, className, sizes }: {
+  src: string;
+  alt: string;
+  fill?: boolean;
+  className?: string;
+  sizes?: string;
+}) {
+  if (isDataUrl(src)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt={alt} className={className} style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' } : undefined} />
+    );
+  }
+  return (
+    <Image src={src} alt={alt} fill={fill} className={className} sizes={sizes} />
+  );
 }
 
 export default function NewsCard({ news, variant = 'horizontal' }: NewsCardProps) {
@@ -15,7 +33,7 @@ export default function NewsCard({ news, variant = 'horizontal' }: NewsCardProps
   if (variant === 'featured') {
     return hasImage ? (
       <Link href={`/noticia/${news.slug}`} className="block relative aspect-[16/10] rounded-xl overflow-hidden shadow-lg card-press">
-        <Image
+        <NewsImage
           src={imageUrl}
           alt={news.title}
           fill
@@ -95,7 +113,7 @@ export default function NewsCard({ news, variant = 'horizontal' }: NewsCardProps
       
       {hasImage ? (
         <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 relative bg-surface-container-high border border-outline-variant/20">
-          <Image
+          <NewsImage
             src={imageUrl}
             alt={news.title}
             fill
