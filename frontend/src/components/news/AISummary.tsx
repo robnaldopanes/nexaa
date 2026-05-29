@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface AISummaryItem {
   number: string;
   text: string;
@@ -31,16 +33,16 @@ export default function AISummary({ items, date }: AISummaryProps) {
               {item.number}
             </span>
             <p className="text-body-md text-on-surface leading-tight line-clamp-2">
-              {item.text.length > 120 ? item.text.slice(0, 120).trim() + '...' : item.text}
+              {item.text.length > 150 ? item.text.slice(0, 150).trim() + '...' : item.text}
             </p>
           </div>
         ))}
       </div>
       <div className="mt-4 pt-3 border-t border-outline-variant/30 flex justify-end">
-        <button className="text-secondary text-label-sm font-label-sm flex items-center gap-1 hover:opacity-80 transition-opacity">
-          ESCUCHAR RESUMEN{' '}
-          <span className="material-symbols-outlined text-[16px]">play_circle</span>
-        </button>
+        <Link href="/buscar" className="text-on-surface text-label-sm font-label-sm font-bold flex items-center gap-1 hover:opacity-80 transition-opacity uppercase tracking-wider">
+          Ver todo{' '}
+          <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </Link>
       </div>
     </div>
   );
