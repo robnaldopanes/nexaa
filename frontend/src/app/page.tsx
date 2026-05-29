@@ -80,7 +80,7 @@ async function fetchLatest(): Promise<NewsItem[]> {
       .eq('is_published', true)
       .eq('is_approved', true)
       .order('published_at', { ascending: false })
-      .limit(12);
+      .limit(20);
     return data || [];
   }, 8000, []);
 }
@@ -159,6 +159,14 @@ export default async function HomePage() {
   }
   latestList = latestList.slice(0, 5);
 
+  // Noticias adicionales para la sección "Más Noticias"
+  const allFiltered = latest
+    .filter((item) => {
+      const featuredIds = new Set(featuredList.map((f) => f.id));
+      return !featuredIds.has(item.id) && (!national || item.id !== national.id);
+    });
+  const moreNewsList = allFiltered.slice(5, 20);
+
   if (featuredList.length === 0 && latestList.length > 0) {
     featuredList = [latestList[0]];
     latestList = latestList.slice(1);
@@ -169,6 +177,7 @@ export default async function HomePage() {
       nationalFeatured={national}
       featuredNewsList={featuredList}
       latestNews={latestList}
+      moreNews={moreNewsList}
       initialPhotos={photos}
       initialAds={ads}
     />

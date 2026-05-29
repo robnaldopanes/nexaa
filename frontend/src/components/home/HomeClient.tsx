@@ -21,6 +21,7 @@ interface HomeClientProps {
   nationalFeatured: NewsItem | null;
   featuredNewsList: NewsItem[];
   latestNews: NewsItem[];
+  moreNews: NewsItem[];
   initialPhotos: PhotoItem[];
   initialAds: AdSpace[];
 }
@@ -29,11 +30,13 @@ export default function HomeClient({
   nationalFeatured: initialNational,
   featuredNewsList: initialFeatured,
   latestNews: initialLatest,
+  moreNews: initialMoreNews,
   initialPhotos,
   initialAds,
 }: HomeClientProps) {
   const router = useRouter();
   const [latestNews, setLatestNews] = useState<NewsItem[]>(initialLatest);
+  const [moreNews, setMoreNews] = useState<NewsItem[]>(initialMoreNews);
   const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>(initialFeatured);
   const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
   const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(initialNational);
@@ -48,10 +51,11 @@ export default function HomeClient({
       nationalFeatured: initialNational,
       featuredNewsList: initialFeatured,
       latestNews: initialLatest,
+      moreNews: initialMoreNews,
       photos: initialPhotos,
       ads: initialAds,
     });
-  }, [initialNational, initialFeatured, initialLatest, initialPhotos, initialAds]);
+  }, [initialNational, initialFeatured, initialLatest, initialMoreNews, initialPhotos, initialAds]);
 
   // Cargar caché localStorage si los props del servidor están vacíos (fallback)
   useEffect(() => {
@@ -62,6 +66,7 @@ export default function HomeClient({
       setNationalFeatured(cached.nationalFeatured);
       setFeaturedNewsList(cached.featuredNewsList);
       setLatestNews(cached.latestNews);
+      setMoreNews(cached.moreNews || []);
       setPhotos(cached.photos);
       setAds(cached.ads);
     }
@@ -225,6 +230,22 @@ export default function HomeClient({
                 </div>
               )}
             </section>
+
+            {moreNews.length > 0 && (
+              <section className="mt-stack-lg px-margin-mobile space-y-gutter">
+                <h3 className="text-headline-md font-headline-md mb-2">Más Noticias</h3>
+                {moreNews.map((news) => (
+                  <NewsCard key={news.id} news={news} variant="horizontal" />
+                ))}
+                <div className="pt-2">
+                  <button onClick={() => router.push('/buscar')} className="w-full py-3 bg-surface-container-highest text-on-surface rounded-xl text-label-md font-label-md font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 uppercase tracking-wider">
+                    Ver todas las noticias
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
+                </div>
+              </section>
+            )}
+
           </>
         <Footer />
       </main>

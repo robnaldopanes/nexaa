@@ -8,6 +8,7 @@ interface HomeCacheData {
   nationalFeatured: NewsItem | null;
   featuredNewsList: NewsItem[];
   latestNews: NewsItem[];
+  moreNews: NewsItem[];
   photos: PhotoItem[];
   ads: AdSpace[];
   timestamp: number;
