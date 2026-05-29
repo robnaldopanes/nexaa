@@ -6,7 +6,7 @@ import TopAppBar from '@/components/layout/TopAppBar';
 import BottomNav from '@/components/layout/BottomNav';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
-import { getNewsImage, getCategoryIcon, cleanEllipsis } from '@/lib/utils';
+import { getNewsImage, getCategoryIcon, cleanEllipsis, getApiUrl } from '@/lib/utils';
 import { NewsItem } from '@/lib/types';
 
 function timeAgo(dateStr: string) {
@@ -30,6 +30,8 @@ export default function NewsDetailPage({ params }: { params: { slug: string } })
 
   const imageUrl = news ? getNewsImage(news.image_url, news.category) : '';
 
+  const apiUrl = getApiUrl();
+
   useEffect(() => {
     async function loadNews() {
       try {
@@ -52,12 +54,15 @@ export default function NewsDetailPage({ params }: { params: { slug: string } })
         setNews(data);
         setLoading(false);
 
-        // 2. Incrementar contador de visitas en segundo plano
-        const newViews = (data.views || 0) + 1;
-        await supabase
-          .from('news')
-          .update({ views: newViews })
-          .eq('id', data.id);
+        // 2. Incrementar contador de visitas vía backend (evita RLS)
+        fetch(`${apiUrl}/api/news/${data.id}/view`, { method: 'POST' })
+          .then(res => res.json())
+          .then(result => {
+            if (result.views) {
+              setNews(prev => prev ? { ...prev, views: result.views } : prev);
+            }
+          })
+          .catch(() => {});
 
       } catch (err) {
         console.error('Error al cargar la noticia:', err);
@@ -67,7 +72,7 @@ export default function NewsDetailPage({ params }: { params: { slug: string } })
     }
 
     loadNews();
-  }, [params.slug]);
+  }, [params.slug, apiUrl]);
 
   return (
     <>
@@ -118,7 +123,7 @@ export default function NewsDetailPage({ params }: { params: { slug: string } })
               <span>·</span>
               <span className="flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[14px]">visibility</span>
-                {news.views + 1} {news.views + 1 === 1 ? 'lectura' : 'lecturas'}
+                {news.views || 0} {(news.views || 0) === 1 ? 'lectura' : 'lecturas'}
               </span>
             </div>
 
