@@ -224,6 +224,14 @@ export default function HomeClient({
               )}
             </section>
 
+            {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
+              <div key={ad.id} className="px-margin-mobile mt-stack-md">
+                <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
+                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                </a>
+              </div>
+            ))}
+
             {moreNews.length > 0 && (
               <section className="mt-stack-lg px-margin-mobile space-y-gutter">
                 <h3 className="text-headline-md font-headline-md mb-2">Más Noticias</h3>
@@ -238,14 +246,6 @@ export default function HomeClient({
                 </div>
               </section>
             )}
-
-            {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
-              <div key={ad.id} className="px-margin-mobile mt-stack-md">
-                <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
-                </a>
-              </div>
-            ))}
 
           </>
         <Footer />
