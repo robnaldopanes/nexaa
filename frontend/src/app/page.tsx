@@ -31,7 +31,7 @@ async function fetchNational(): Promise<NewsItem | null> {
       .order('published_at', { ascending: false })
       .limit(1);
     return data && data.length > 0 ? data[0] : null;
-  }, 8000, null);
+  }, 3000, null);
 }
 
 async function fetchFeatured(): Promise<NewsItem[]> {
@@ -47,29 +47,33 @@ async function fetchFeatured(): Promise<NewsItem[]> {
     let list = data || [];
 
     if (list.length === 0) {
-      const { data: breaking } = await supabaseServer
-        .from('news')
-        .select('*')
-        .eq('is_published', true)
-        .eq('is_approved', true)
-        .eq('is_breaking', true)
-        .order('published_at', { ascending: false });
-      list = breaking || [];
+      try {
+        const { data: breaking } = await supabaseServer
+          .from('news')
+          .select('*')
+          .eq('is_published', true)
+          .eq('is_approved', true)
+          .eq('is_breaking', true)
+          .order('published_at', { ascending: false });
+        list = breaking || [];
+      } catch {}
     }
 
     if (list.length === 0) {
-      const { data: fallback } = await supabaseServer
-        .from('news')
-        .select('*')
-        .eq('is_published', true)
-        .eq('is_approved', true)
-        .order('published_at', { ascending: false })
-        .limit(5);
-      list = fallback || [];
+      try {
+        const { data: fallback } = await supabaseServer
+          .from('news')
+          .select('*')
+          .eq('is_published', true)
+          .eq('is_approved', true)
+          .order('published_at', { ascending: false })
+          .limit(5);
+        list = fallback || [];
+      } catch {}
     }
 
     return list.slice(0, 5);
-  }, 15000, []);
+  }, 5000, []);
 }
 
 async function fetchLatest(): Promise<NewsItem[]> {
@@ -82,7 +86,7 @@ async function fetchLatest(): Promise<NewsItem[]> {
       .order('published_at', { ascending: false })
       .limit(20);
     return data || [];
-  }, 8000, []);
+  }, 3000, []);
 }
 
 async function fetchPhotos(): Promise<PhotoItem[]> {
@@ -109,7 +113,7 @@ async function fetchPhotos(): Promise<PhotoItem[]> {
       is_featured: p.is_featured ?? false,
       created_at: p.created_at || new Date().toISOString(),
     }));
-  }, 8000, []);
+  }, 3000, []);
 }
 
 async function fetchAds(): Promise<AdSpace[]> {
@@ -121,18 +125,20 @@ async function fetchAds(): Promise<AdSpace[]> {
     let activeAds = await res.json();
 
     if (!activeAds || activeAds.length === 0) {
-      const resSeed = await fetch(`${apiUrl}/api/ads/seed`);
-      if (resSeed.ok) {
-        const seedResult = await resSeed.json();
-        if (seedResult.success) {
-          const resReload = await fetch(`${apiUrl}/api/ads?active=true`);
-          if (resReload.ok) activeAds = await resReload.json();
+      try {
+        const resSeed = await fetch(`${apiUrl}/api/ads/seed`);
+        if (resSeed.ok) {
+          const seedResult = await resSeed.json();
+          if (seedResult.success) {
+            const resReload = await fetch(`${apiUrl}/api/ads?active=true`);
+            if (resReload.ok) activeAds = await resReload.json();
+          }
         }
-      }
+      } catch {}
     }
 
     return activeAds || [];
-  }, 8000, []);
+  }, 3000, []);
 }
 
 export default async function HomePage() {
