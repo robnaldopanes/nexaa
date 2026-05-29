@@ -160,7 +160,7 @@ export default function HomeClient({
             {ads.filter((a) => a.is_active && a.location === 'Banner Principal').slice(0, 1).map((ad) => (
               <div key={ad.id} className="px-margin-mobile mt-stack-sm">
                 <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-24 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
                 </a>
               </div>
             ))}
@@ -197,7 +197,7 @@ export default function HomeClient({
                   {idx === 1 && ads.filter((a) => a.is_active && a.location === 'Entre noticias').slice(0, 1).map((ad) => (
                     <div key={ad.id} className="mt-gutter">
                       <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                        <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                        <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
                         <span className="absolute top-1 right-1 bg-black/40 text-white text-[8px] px-1.5 py-0.5 rounded-full">Ad</span>
                       </a>
                     </div>
@@ -227,7 +227,7 @@ export default function HomeClient({
             {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
               <div key={ad.id} className="px-margin-mobile mt-stack-md">
                 <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
                 </a>
               </div>
             ))}

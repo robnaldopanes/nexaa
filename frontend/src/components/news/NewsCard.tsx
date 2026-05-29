@@ -22,7 +22,7 @@ function NewsImage({ src, alt, fill, className, sizes }: {
     );
   }
   return (
-    <Image src={src} alt={alt} fill={fill} className={className} sizes={sizes} />
+    <Image src={src} alt={alt} fill={fill} className={className} sizes={sizes} unoptimized />
   );
 }
 

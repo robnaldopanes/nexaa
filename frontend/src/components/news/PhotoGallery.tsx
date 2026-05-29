@@ -31,6 +31,7 @@ export default function PhotoGallery({ photos, variant = 'grid' }: PhotoGalleryP
             fill
             className="object-cover"
             sizes="100vw"
+            unoptimized
           />
           <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/45 to-transparent">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
@@ -77,6 +78,7 @@ export default function PhotoGallery({ photos, variant = 'grid' }: PhotoGalleryP
               fill
               className="object-cover hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 768px) 50vw, 25vw"
+              unoptimized
             />
           </button>
         ))}
@@ -112,6 +114,7 @@ function Lightbox({ photo, onClose }: { photo: Photo | null; onClose: () => void
             fill
             className="object-contain"
             sizes="100vw"
+            unoptimized
           />
         </div>
 
