@@ -208,13 +208,6 @@ export default function HomeClient({
 
             <section className="mt-stack-lg px-margin-mobile">
               <SectionHeader title="Miradas de Ñuble" viewAllLink="/fotos" />
-              {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
-                <div key={ad.id} className="mb-3">
-                  <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                    <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
-                  </a>
-                </div>
-              ))}
               {photos.length > 0 ? (
                 <>
                   <PhotoGallery photos={photos.map(p => ({ id: p.id, image_url: p.image_url, alt: p.title, title: p.title, comuna: p.comuna }))} variant="grid" />
@@ -245,6 +238,14 @@ export default function HomeClient({
                 </div>
               </section>
             )}
+
+            {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
+              <div key={ad.id} className="px-margin-mobile mt-stack-md">
+                <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
+                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" />
+                </a>
+              </div>
+            ))}
 
           </>
         <Footer />
