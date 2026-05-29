@@ -211,8 +211,8 @@ export default function HomeClient({
               {photos.length > 0 ? (
                 <>
                   <PhotoGallery photos={photos.map(p => ({ id: p.id, image_url: p.image_url, alt: p.title, title: p.title, comuna: p.comuna }))} variant="grid" />
-                  <button onClick={() => router.push('/fotos#subir')} className="w-full mt-3 py-2.5 border border-dashed border-outline-variant/60 rounded-xl text-on-surface-variant/60 hover:text-secondary hover:border-secondary/40 transition-all flex items-center justify-center gap-1.5 text-label-sm">
-                    <span className="material-symbols-outlined text-[18px]">add_a_photo</span>Compartir una foto de Ñuble
+                  <button onClick={() => router.push('/fotos#subir')} className="w-full mt-3 py-3 bg-secondary text-on-secondary rounded-xl text-label-md font-label-md font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm">
+                    <span className="material-symbols-outlined text-[20px]">add_a_photo</span>Compartir una foto de Ñuble
                   </button>
                 </>
               ) : (
