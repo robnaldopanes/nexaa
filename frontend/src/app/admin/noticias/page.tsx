@@ -750,6 +750,37 @@ export default function AdminNoticiasPage() {
                     <span className="material-symbols-outlined text-[16px]">edit</span>
                     Editar
                   </button>
+                  <button
+                    onClick={async () => {
+                      const action = item.is_published ? 'quitar de la página principal' : 'publicar en la página principal';
+                      if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} "${item.title}"?`)) return;
+                      try {
+                        const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
+                        const res = await fetch(`${apiUrl}/api/news/${item.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ is_published: !item.is_published }),
+                        });
+                        if (res.ok) {
+                          loadPublishedNews();
+                        } else {
+                          alert('Error al cambiar estado de publicación');
+                        }
+                      } catch {
+                        alert('Error de conexión');
+                      }
+                    }}
+                    className={`p-1.5 rounded-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm ${
+                      item.is_published
+                        ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                        : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                    }`}
+                    title={item.is_published ? 'Quitar de la página principal' : 'Publicar en la página principal'}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {item.is_published ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
                 </div>
               </div>
             ))
