@@ -321,6 +321,15 @@ export default function AdminNoticiasPage() {
     // La imagen puede ser URL o base64 - el endpoint /api/news maneja ambos
     const finalImageUrl = imageUrl.trim() || imagePreview || '';
 
+    // Logging para diagnóstico
+    console.log('[FRONTEND] Publicando noticia:', {
+      title: title.trim().substring(0, 50),
+      imageUrl: imageUrl ? imageUrl.substring(0, 50) + '...' : 'VACIO',
+      imagePreview: imagePreview ? 'BASE64 (' + imagePreview.length + ' chars)' : 'NULL',
+      finalImageUrl: finalImageUrl ? (finalImageUrl.startsWith('data:') ? 'BASE64 (' + finalImageUrl.length + ' chars)' : finalImageUrl.substring(0, 80)) : 'VACIO',
+      apiUrl: apiUrl,
+    });
+
     const body: Record<string, unknown> = {
       title: title.trim(),
       content: content.trim(),
@@ -339,16 +348,26 @@ export default function AdminNoticiasPage() {
     };
 
     try {
+      console.log('[FRONTEND] Enviando a:', `${apiUrl}/api/news`);
       const res = await fetch(`${apiUrl}/api/news`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
+      console.log('[FRONTEND] Respuesta status:', res.status);
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        console.error('[FRONTEND] Error del backend:', errorData);
         throw new Error(errorData.error || 'Error al publicar noticia');
       }
+
+      const responseData = await res.json();
+      console.log('[FRONTEND] Respuesta del backend:', {
+        id: responseData.id,
+        image_url: responseData.image_url ? (responseData.image_url.startsWith('data:') ? 'BASE64' : 'URL: ' + responseData.image_url.substring(0, 60)) : 'VACIO',
+      });
 
       if (typeof window !== 'undefined') {
         localStorage.removeItem('nexaa_home_cache');
@@ -356,6 +375,7 @@ export default function AdminNoticiasPage() {
 
       toast.success('¡Noticia publicada correctamente!');
     } catch (e: any) {
+      console.error('[FRONTEND] Error:', e);
       toast.error(`Error: ${e.message || 'No se pudo publicar la noticia'}`);
     }
 
