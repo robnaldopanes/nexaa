@@ -46,31 +46,34 @@ export default function HomeClient() {
 
   const fetchAndCache = useCallback(async () => {
     try {
+      // Solo seleccionar campos necesarios para el feed (reduce tamaño de 650KB a ~50KB)
+      const feedFields = 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views';
+
       const [nationalRes, featuredRes, latestRes, photosRes] = await Promise.all([
-        supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).eq('is_featured', true).eq('comuna', 'Nacional').order('published_at', { ascending: false }).limit(1),
-        supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).eq('is_featured', true).order('published_at', { ascending: false }),
-        supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(20),
-        supabase.from('photos').select('*').eq('is_approved', true).order('created_at', { ascending: false }).limit(4),
+        supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_featured', true).eq('comuna', 'Nacional').order('published_at', { ascending: false }).limit(1),
+        supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_featured', true).order('published_at', { ascending: false }),
+        supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(20),
+        supabase.from('photos').select('id,title,description,image_url,photographer,comuna,category,likes,is_approved,is_featured,created_at').eq('is_approved', true).order('created_at', { ascending: false }).limit(4),
       ]);
 
-      const national = nationalRes.data && nationalRes.data.length > 0 ? nationalRes.data[0] : null;
+      const national = nationalRes.data && nationalRes.data.length > 0 ? nationalRes.data[0] as NewsItem : null;
 
-      let featuredList = featuredRes.data || [];
+      let featuredList = (featuredRes.data || []) as NewsItem[];
       if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
 
       if (featuredList.length === 0) {
-        const { data: breaking } = await supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).eq('is_breaking', true).order('published_at', { ascending: false });
-        featuredList = breaking || [];
-        if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
+        const { data: breaking } = await supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_breaking', true).order('published_at', { ascending: false });
+        featuredList = (breaking || []) as NewsItem[];
+        if (national) featuredList = featuredList.filter((item) => item.id !== national!.id);
       }
       if (featuredList.length === 0) {
-        const { data: fallback } = await supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(5);
-        featuredList = fallback || [];
-        if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
+        const { data: fallback } = await supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(5);
+        featuredList = (fallback || []) as NewsItem[];
+        if (national) featuredList = featuredList.filter((item) => item.id !== national!.id);
       }
       featuredList = featuredList.slice(0, 5);
 
-      let latestList = latestRes.data || [];
+      let latestList = (latestRes.data || []) as NewsItem[];
       const featuredIds = new Set(featuredList.map((item) => item.id));
       if (featuredIds.size > 0) latestList = latestList.filter((item) => !featuredIds.has(item.id));
       if (national) latestList = latestList.filter((item) => item.id !== national.id);
