@@ -22,8 +22,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       }
 
       let ext = matches[1].toLowerCase();
-      if (ext === 'jpeg') ext = 'jpg';
       if (ext.includes(';')) ext = ext.split(';')[0];
+      
+      // Mapear extensión a MIME type válido
+      const mimeMap: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'gif': 'image/gif',
+      };
+      const contentType = mimeMap[ext] || 'image/jpeg';
+      const fileExt = ext === 'jpeg' ? 'jpg' : ext;
 
       const buffer = Buffer.from(matches[2], 'base64');
       
@@ -31,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json({ error: 'La imagen es muy grande (máximo 5MB)' }, { status: 400 });
       }
 
-      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
       const filePath = `uploads/${uniqueName}`;
 
       const { data: buckets } = await supabase.storage.listBuckets();
@@ -45,7 +55,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
       const { error: uploadError } = await supabase.storage
         .from('news-images')
-        .upload(filePath, buffer, { contentType: `image/${ext}`, upsert: false });
+        .upload(filePath, buffer, { contentType, upsert: false });
 
       if (uploadError) {
         console.error('Error uploading image:', uploadError);
