@@ -6,7 +6,8 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://celebrated-commitm
 const SITE_NAME = 'NEXAA';
 
 export function getAbsoluteUrl(path: string): string {
-  return `${SITE_URL}${path}`;
+  const base = SITE_URL.endsWith('/') ? SITE_URL.slice(0, -1) : SITE_URL;
+  return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 export function getNewsUrl(slug: string): string {
@@ -21,10 +22,10 @@ export function truncateText(text: string, maxLength: number = 150): string {
 }
 
 export function getOgImageUrl(imageUrl: string | null | undefined): string {
-  if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('googleusercontent.com')) {
+  if (imageUrl && imageUrl.startsWith('http') && !imageUrl.includes('googleusercontent.com') && !imageUrl.includes('placeholder')) {
     return imageUrl;
   }
-  return getAbsoluteUrl('/og-placeholder.png');
+  return getAbsoluteUrl('/images/icon-512.png');
 }
 
 export function generateNewsMetadata(news: NewsItem): Metadata {
