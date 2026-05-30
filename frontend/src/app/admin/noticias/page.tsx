@@ -86,11 +86,58 @@ export default function AdminNoticiasPage() {
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validar tamaño máximo (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen es muy grande. Máximo 2MB.');
+      return;
+    }
+
     setEditNewsImageFile(file);
     setEditNewsImageUrl('');
-    const reader = new FileReader();
-    reader.onload = () => setEditNewsImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+
+    // Comprimir imagen antes de convertir a base64
+    const img = new window.Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > MAX_SIZE) {
+        height = Math.round((height * MAX_SIZE) / width);
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width = Math.round((width * MAX_SIZE) / height);
+        height = MAX_SIZE;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      try {
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setEditNewsImagePreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => setEditNewsImagePreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => setEditNewsImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
   };
 
   const handleSaveNewsEdit = async () => {
@@ -207,11 +254,58 @@ export default function AdminNoticiasPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validar tamaño máximo (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen es muy grande. Máximo 2MB.');
+      return;
+    }
+
     setImageFile(file);
     setImageUrl('');
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+
+    // Comprimir imagen antes de convertir a base64
+    const img = new window.Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > MAX_SIZE) {
+        height = Math.round((height * MAX_SIZE) / width);
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width = Math.round((width * MAX_SIZE) / height);
+        height = MAX_SIZE;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      try {
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setImagePreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => setImagePreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
   };
 
   const handleManualPublish = () => {
@@ -251,37 +345,18 @@ export default function AdminNoticiasPage() {
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) throw new Error('Error al publicar noticia');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al publicar noticia');
+      }
 
       if (typeof window !== 'undefined') {
         localStorage.removeItem('nexaa_home_cache');
       }
 
       toast.success('¡Noticia publicada correctamente!');
-    } catch (e) {
-      const localNews: NewsItem = {
-        id: `local-${Date.now()}`,
-        title: title.trim(),
-        summary: summary.trim() || title.trim(),
-        content: content.trim(),
-        image_url: finalImageUrl,
-        source_url: '',
-        source_name: 'NEXAA Redacción',
-        category: category || 'Regional',
-        comuna: comuna || 'Ñuble',
-        tags: [],
-        is_featured: isFeatured,
-        is_breaking: isBreaking,
-        is_approved: true,
-        is_published: true,
-        ai_generated: false,
-        published_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        views: 0,
-        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
-      };
-      setPublishedList(prev => [localNews, ...prev]);
-      toast.warning('Noticia guardada localmente.');
+    } catch (e: any) {
+      toast.error(`Error: ${e.message || 'No se pudo publicar la noticia'}`);
     }
 
     setManualPreview(false);
