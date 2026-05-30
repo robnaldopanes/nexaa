@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import TopAppBar from '@/components/layout/TopAppBar';
 import BottomNav from '@/components/layout/BottomNav';
@@ -13,54 +12,24 @@ import AISummary from '@/components/news/AISummary';
 import NewsCard from '@/components/news/NewsCard';
 import PhotoGallery from '@/components/news/PhotoGallery';
 import { supabase } from '@/lib/supabase';
-import { getNewsImage, formatDate, cleanEllipsis, getApiUrl } from '@/lib/utils';
+import { cleanEllipsis, getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
-import { setCachedHomeData, getCachedHomeData, isCacheStale } from '@/lib/newsCache';
+import { setCachedHomeData, getCachedHomeData } from '@/lib/newsCache';
 
-interface HomeClientProps {
-  nationalFeatured: NewsItem | null;
-  featuredNewsList: NewsItem[];
-  latestNews: NewsItem[];
-  moreNews: NewsItem[];
-  initialPhotos: PhotoItem[];
-  initialAds: AdSpace[];
-}
-
-export default function HomeClient({
-  nationalFeatured: initialNational,
-  featuredNewsList: initialFeatured,
-  latestNews: initialLatest,
-  moreNews: initialMoreNews,
-  initialPhotos,
-  initialAds,
-}: HomeClientProps) {
+export default function HomeClient() {
   const router = useRouter();
-  const [latestNews, setLatestNews] = useState<NewsItem[]>(initialLatest);
-  const [moreNews, setMoreNews] = useState<NewsItem[]>(initialMoreNews);
-  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>(initialFeatured);
+  const [loading, setLoading] = useState(true);
+  const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
+  const [moreNews, setMoreNews] = useState<NewsItem[]>([]);
+  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>([]);
   const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
-  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(initialNational);
+  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(null);
   const [aiSummaries, setAiSummaries] = useState<{ number: string; text: string }[]>([]);
-  const [photos, setPhotos] = useState<PhotoItem[]>(initialPhotos);
-  const [ads, setAds] = useState<AdSpace[]>(initialAds);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [ads, setAds] = useState<AdSpace[]>([]);
   const apiUrl = getApiUrl();
 
-  // Guardar datos del servidor en caché localStorage
-  useEffect(() => {
-    setCachedHomeData({
-      nationalFeatured: initialNational,
-      featuredNewsList: initialFeatured,
-      latestNews: initialLatest,
-      moreNews: initialMoreNews,
-      photos: initialPhotos,
-      ads: initialAds,
-    });
-  }, [initialNational, initialFeatured, initialLatest, initialMoreNews, initialPhotos, initialAds]);
-
-  // Cargar caché localStorage si los props del servidor están vacíos (fallback)
-  useEffect(() => {
-    if (initialFeatured.length > 0 || initialLatest.length > 0 || initialNational) return;
-
+  const loadFromCache = useCallback(() => {
     const cached = getCachedHomeData();
     if (cached) {
       setNationalFeatured(cached.nationalFeatured);
@@ -69,10 +38,109 @@ export default function HomeClient({
       setMoreNews(cached.moreNews || []);
       setPhotos(cached.photos);
       setAds(cached.ads);
+      setLoading(false);
+      return true;
     }
-  }, [initialFeatured, initialLatest, initialNational]);
+    return false;
+  }, []);
 
-  // Carousel rotación automática
+  const fetchAndCache = useCallback(async () => {
+    try {
+      const [nationalRes, featuredRes, latestRes, photosRes] = await Promise.all([
+        supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).eq('is_featured', true).eq('comuna', 'Nacional').order('published_at', { ascending: false }).limit(1),
+        supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).eq('is_featured', true).order('published_at', { ascending: false }),
+        supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(20),
+        supabase.from('photos').select('*').eq('is_approved', true).order('created_at', { ascending: false }).limit(4),
+      ]);
+
+      const national = nationalRes.data && nationalRes.data.length > 0 ? nationalRes.data[0] : null;
+
+      let featuredList = featuredRes.data || [];
+      if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
+
+      if (featuredList.length === 0) {
+        const { data: breaking } = await supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).eq('is_breaking', true).order('published_at', { ascending: false });
+        featuredList = breaking || [];
+        if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
+      }
+      if (featuredList.length === 0) {
+        const { data: fallback } = await supabase.from('news').select('*').eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(5);
+        featuredList = fallback || [];
+        if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
+      }
+      featuredList = featuredList.slice(0, 5);
+
+      let latestList = latestRes.data || [];
+      const featuredIds = new Set(featuredList.map((item) => item.id));
+      if (featuredIds.size > 0) latestList = latestList.filter((item) => !featuredIds.has(item.id));
+      if (national) latestList = latestList.filter((item) => item.id !== national.id);
+      const latestSliced = latestList.slice(0, 5);
+
+      const moreNewsList = latestList.filter((item) => !featuredIds.has(item.id) && (!national || item.id !== national.id)).slice(5, 20);
+
+      if (featuredList.length === 0 && latestSliced.length > 0) {
+        featuredList = [latestSliced[0]];
+        latestList = latestSliced.slice(1);
+      }
+
+      const photosData = photosRes.data || [];
+      const mappedPhotos: PhotoItem[] = photosData.map((p) => ({
+        id: p.id, title: p.title || 'Fotografía de Ñuble', description: p.description || '',
+        image_url: p.image_url, photographer: p.photographer || 'Colaborador',
+        comuna: p.comuna || 'Ñuble', category: p.category || 'General',
+        likes: p.likes || 0, is_approved: p.is_approved ?? true, is_featured: p.is_featured ?? false,
+        created_at: p.created_at || new Date().toISOString(),
+      }));
+
+      let adsData: AdSpace[] = [];
+      try {
+        const resAds = await fetch(`${apiUrl}/api/ads?active=true`);
+        if (resAds.ok) {
+          adsData = await resAds.json();
+          if (!adsData || adsData.length === 0) {
+            const resSeed = await fetch(`${apiUrl}/api/ads/seed`);
+            if (resSeed.ok) {
+              const seedResult = await resSeed.json();
+              if (seedResult.success) {
+                const resReload = await fetch(`${apiUrl}/api/ads?active=true`);
+                if (resReload.ok) adsData = await resReload.json();
+              }
+            }
+          }
+        }
+      } catch {}
+
+      setNationalFeatured(national);
+      setFeaturedNewsList(featuredList);
+      setLatestNews(latestSliced.length > 0 ? latestSliced : featuredList.slice(1));
+      setMoreNews(moreNewsList);
+      setPhotos(mappedPhotos);
+      setAds(adsData || []);
+      setLoading(false);
+
+      setCachedHomeData({
+        nationalFeatured: national,
+        featuredNewsList: featuredList,
+        latestNews: latestSliced.length > 0 ? latestSliced : featuredList.slice(1),
+        moreNews: moreNewsList,
+        photos: mappedPhotos,
+        ads: adsData || [],
+      });
+    } catch (err) {
+      console.error('Error fetching home data:', err);
+      setLoading(false);
+    }
+  }, [apiUrl]);
+
+  useEffect(() => {
+    const hasCache = loadFromCache();
+    if (hasCache) {
+      fetchAndCache();
+    } else {
+      fetchAndCache();
+    }
+  }, [loadFromCache, fetchAndCache]);
+
   useEffect(() => {
     if (featuredNewsList.length <= 1) return;
     const interval = setInterval(() => {
@@ -81,7 +149,6 @@ export default function HomeClient({
     return () => clearInterval(interval);
   }, [featuredNewsList]);
 
-  // AI Summary (client-side con caché localStorage)
   useEffect(() => {
     const CACHE_KEY = 'nexaa_daily_summary';
     const cached = typeof window !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
@@ -110,10 +177,8 @@ export default function HomeClient({
         }
       } catch {}
 
-      // Fallback: usar noticias locales
-      const source = latestNews.length > 0 ? latestNews : initialLatest;
-      if (source.length > 0) {
-        setAiSummaries(source.slice(0, 3).map((item, index) => ({
+      if (latestNews.length > 0) {
+        setAiSummaries(latestNews.slice(0, 3).map((item, index) => ({
           number: `0${index + 1}`,
           text: cleanEllipsis(item.summary) || item.title,
         })));
@@ -121,7 +186,7 @@ export default function HomeClient({
     }
 
     fetchAISummary();
-  }, [apiUrl, latestNews, initialLatest]);
+  }, [apiUrl, latestNews]);
 
   const handleSearchSubmit = (q: string) => {
     if (q.trim()) { router.push(`/buscar?q=${encodeURIComponent(q.trim())}`); }
@@ -136,7 +201,6 @@ export default function HomeClient({
     fetch(`${apiUrl}/api/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
   };
 
-  // Registrar impresiones de ads
   useEffect(() => {
     if (ads.length === 0) return;
     ads.forEach((ad) => {
@@ -145,6 +209,37 @@ export default function HomeClient({
       }
     });
   }, [ads, apiUrl]);
+
+  if (loading) {
+    return (
+      <>
+        <TopAppBar />
+        <main className="pt-14 pb-20 overflow-x-hidden">
+          <div className="px-margin-mobile mt-stack-lg space-y-4">
+            <div className="ai-glow rounded-xl p-4 bg-surface-container-lowest shadow-sm animate-pulse flex items-center gap-2 h-12">
+              <span className="material-symbols-outlined material-symbols-filled text-secondary/50 text-[20px]">auto_awesome</span>
+              <div className="h-3 bg-surface-container-high rounded w-40" />
+            </div>
+            {[1,2,3].map(i => (
+              <div key={i} className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm animate-pulse">
+                <div className="flex gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="h-3 bg-surface-container-high rounded w-20" />
+                    <div className="h-4 bg-surface-container-high rounded w-full" />
+                    <div className="h-4 bg-surface-container-high rounded w-3/4" />
+                    <div className="h-3 bg-surface-container-high rounded w-24" />
+                  </div>
+                  <div className="w-24 h-24 rounded-lg bg-surface-container-high flex-shrink-0" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <Footer />
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   return (
     <>
