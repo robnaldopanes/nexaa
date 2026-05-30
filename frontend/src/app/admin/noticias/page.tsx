@@ -79,6 +79,9 @@ export default function AdminNoticiasPage() {
 
   const handleSaveNewsEdit = async () => {
     if (!editingNewsItem) return;
+
+    const finalImageUrl = editNewsImageUrl.trim();
+
     try {
       const response = await fetch(`${apiUrl}/api/news/${editingNewsItem.id}`, {
         method: 'PUT',
@@ -89,7 +92,7 @@ export default function AdminNoticiasPage() {
           summary: editNewsSummary.trim(),
           category: editNewsCategory,
           comuna: editNewsComuna,
-          image_url: editNewsImageUrl.trim(),
+          image_url: finalImageUrl,
           is_featured: editNewsIsFeatured,
           is_breaking: editNewsIsBreaking,
           slug: editNewsTitle.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100),
@@ -101,7 +104,12 @@ export default function AdminNoticiasPage() {
       }
 
       setEditingNewsItem(null);
-      toast.success('La noticia ha sido actualizada correctamente en la base de datos.');
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexaa_home_cache');
+      }
+
+      toast.success('La noticia ha sido actualizada correctamente.');
       loadPublishedNews();
     } catch (err) {
       console.error(err);
@@ -203,17 +211,23 @@ export default function AdminNoticiasPage() {
       let finalImageUrl = imageUrl.trim();
       if (!finalImageUrl && imagePreview && imagePreview.startsWith('data:image')) {
         try {
-          const uploadRes = await fetch(`${apiUrl}/api/upload`, {
+          const uploadRes = await fetch(`${apiUrl}/api/upload-image`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imagePreview }),
+            body: JSON.stringify({ image: imagePreview, filename: `noticia-${Date.now()}.jpg` }),
           });
           if (uploadRes.ok) {
             const uploadData = await uploadRes.json();
-            finalImageUrl = uploadData.url;
+            if (uploadData.url) {
+              finalImageUrl = uploadData.url;
+            }
           }
         } catch (uploadErr) {
           console.error('Error subiendo imagen:', uploadErr);
+        }
+        // Fallback: si el upload falló, usar base64 directamente
+        if (!finalImageUrl) {
+          finalImageUrl = imagePreview;
         }
       }
 
@@ -241,6 +255,11 @@ export default function AdminNoticiasPage() {
       });
 
       if (!res.ok) throw new Error('Backend no disponible');
+
+      // Limpiar caché para que la página principal se actualice
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexaa_home_cache');
+      }
 
       toast.success('¡Noticia publicada correctamente!');
     } catch (e) {

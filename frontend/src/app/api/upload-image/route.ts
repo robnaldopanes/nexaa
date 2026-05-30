@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(matches[2], 'base64');
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filePath = `uploads/${filename || uniqueName}`;
+    const filePath = `uploads/${uniqueName}`;
 
     const supabase = createClient(supabaseUrl, serviceKey);
     const BUCKET = 'news-images';
