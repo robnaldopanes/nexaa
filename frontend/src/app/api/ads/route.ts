@@ -14,15 +14,22 @@ export async function GET(request: NextRequest) {
     const active = searchParams.get('active');
 
     const supabase = getSupabase();
-    let query = supabase.from('ads').select('*');
-    if (active) query = query.eq('is_active', true);
+    
+    // Crear query con timeout de 2 segundos
+    const queryPromise = (async () => {
+      let query = supabase.from('ads').select('*');
+      if (active) query = query.eq('is_active', true);
+      const { data, error } = await query;
+      if (error) return [];
+      return data || [];
+    })();
 
-    const { data, error } = await query;
-    if (error) {
-      // Si la tabla no existe, devolver array vacío
-      return NextResponse.json([]);
-    }
-    return NextResponse.json(data || []);
+    const timeoutPromise = new Promise<[]>((resolve) => 
+      setTimeout(() => resolve([]), 2000)
+    );
+
+    const result = await Promise.race([queryPromise, timeoutPromise]);
+    return NextResponse.json(result);
   } catch {
     return NextResponse.json([]);
   }
