@@ -37,7 +37,7 @@ async function checkDuplicate(item, supabase) {
   if (!supabase) return false;
 
   try {
-    // 1) Misma URL
+    // 1) Misma URL en inbox
     if (item.source_url) {
       const { data: urlMatch } = await supabase
         .from('news_inbox')
@@ -47,7 +47,7 @@ async function checkDuplicate(item, supabase) {
       if (urlMatch?.length) return true;
     }
 
-    // 2) URL ya publicada
+    // 2) URL ya publicada en noticias
     if (item.source_url) {
       const { data: pubMatch } = await supabase
         .from('news')
@@ -57,7 +57,7 @@ async function checkDuplicate(item, supabase) {
       if (pubMatch?.length) return true;
     }
 
-    // 3) Título similar (primeras 10 palabras)
+    // 3) Título similar en inbox (umbral 50%)
     const searchTitle = item.title.slice(0, 80);
     const { data: titleMatches } = await supabase
       .from('news_inbox')
@@ -68,7 +68,38 @@ async function checkDuplicate(item, supabase) {
     if (titleMatches) {
       for (const existing of titleMatches) {
         const sim = similarityScore(item.title, existing.title);
-        if (sim > 0.6) return true;
+        if (sim > 0.5) return true;
+      }
+    }
+
+    // 4) Título similar en noticias publicadas (evita repetir de otros medios)
+    const { data: publishedMatches } = await supabase
+      .from('news')
+      .select('id, title')
+      .or(`title.ilike.%${searchTitle.slice(0, 30)}%`)
+      .limit(5);
+
+    if (publishedMatches) {
+      for (const existing of publishedMatches) {
+        const sim = similarityScore(item.title, existing.title);
+        if (sim > 0.5) return true;
+      }
+    }
+
+    // 5) Contenido/resumen similar en noticias publicadas
+    if (item.summary && item.summary.length > 30) {
+      const searchSummary = item.summary.slice(0, 50);
+      const { data: summaryMatches } = await supabase
+        .from('news')
+        .select('id, summary')
+        .or(`summary.ilike.%${searchSummary.slice(0, 30)}%`)
+        .limit(3);
+
+      if (summaryMatches) {
+        for (const existing of summaryMatches) {
+          const sim = similarityScore(item.summary, existing.summary || '');
+          if (sim > 0.6) return true;
+        }
       }
     }
 
