@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatDate, getNewsImage, getCategoryIcon, isDataUrl } from '@/lib/utils';
@@ -15,14 +18,16 @@ function NewsImage({ src, alt, fill, className, sizes }: {
   className?: string;
   sizes?: string;
 }) {
-  if (isDataUrl(src)) {
+  const [error, setError] = useState(false);
+
+  if (isDataUrl(src) || error) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img src={src} alt={alt} className={className} style={fill ? { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' } : undefined} />
     );
   }
   return (
-    <Image src={src} alt={alt} fill={fill} className={className} sizes={sizes} unoptimized />
+    <Image src={src} alt={alt} fill={fill} className={className} sizes={sizes} unoptimized onError={() => setError(true)} />
   );
 }
 
