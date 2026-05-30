@@ -16,9 +16,16 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const comuna = searchParams.get('comuna');
     const featured = searchParams.get('featured');
+    const full = searchParams.get('full'); // Si se pasa full=1, devolver todos los campos
 
     const supabase = getSupabase();
-    let query = supabase.from('news').select('*')
+    
+    // Seleccionar solo los campos necesarios para el feed (reduce tamaño de 650KB a ~50KB)
+    const selectFields = full 
+      ? '*' 
+      : 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views';
+
+    let query = supabase.from('news').select(selectFields)
       .eq('is_published', true).eq('is_approved', true)
       .order('published_at', { ascending: false })
       .range(offset, offset + limit - 1);
