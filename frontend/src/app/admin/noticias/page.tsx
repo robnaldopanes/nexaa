@@ -43,6 +43,9 @@ export default function AdminNoticiasPage() {
   const [editNewsImageUrl, setEditNewsImageUrl] = useState('');
   const [editNewsIsFeatured, setEditNewsIsFeatured] = useState(false);
   const [editNewsIsBreaking, setEditNewsIsBreaking] = useState(false);
+  const [editNewsImagePreview, setEditNewsImagePreview] = useState<string | null>(null);
+  const [editNewsImageType, setEditNewsImageType] = useState<'upload' | 'url'>('url');
+  const [editNewsImageFile, setEditNewsImageFile] = useState<File | null>(null);
 
   const loadPublishedNews = async () => {
     setLoadingNews(true);
@@ -75,12 +78,26 @@ export default function AdminNoticiasPage() {
     setEditNewsImageUrl(item.image_url || '');
     setEditNewsIsFeatured(!!item.is_featured);
     setEditNewsIsBreaking(!!item.is_breaking);
+    setEditNewsImagePreview(null);
+    setEditNewsImageType('url');
+    setEditNewsImageFile(null);
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditNewsImageFile(file);
+    setEditNewsImageUrl('');
+    const reader = new FileReader();
+    reader.onload = () => setEditNewsImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const handleSaveNewsEdit = async () => {
     if (!editingNewsItem) return;
 
-    const finalImageUrl = editNewsImageUrl.trim();
+    // Usar preview si se subió archivo, sino usar URL
+    const finalImageUrl = editNewsImagePreview || editNewsImageUrl.trim();
 
     try {
       const response = await fetch(`${apiUrl}/api/news/${editingNewsItem.id}`, {
@@ -117,6 +134,7 @@ export default function AdminNoticiasPage() {
     }
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyzeURL = async () => {
     if (!url.trim()) return;
@@ -867,17 +885,83 @@ export default function AdminNoticiasPage() {
               </div>
 
               <div>
-                <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">URL de la Imagen (Pega aquí la dirección de la imagen copiada) *</label>
-                <input
-                  type="url"
-                  value={editNewsImageUrl}
-                  onChange={(e) => setEditNewsImageUrl(e.target.value)}
-                  placeholder="https://ejemplo.cl/imagen.jpg"
-                  className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
-                />
-                {editNewsImageUrl && editNewsImageUrl.startsWith('http') && (
-                  <div className="mt-2 relative aspect-video w-48 rounded-lg overflow-hidden bg-surface-container-high border border-outline-variant/30">
-                    <img src={editNewsImageUrl} alt="Vista previa" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">Imagen de la noticia</label>
+
+                {/* Toggle origen de imagen */}
+                <div className="bg-surface-container-low rounded-xl p-1 border border-outline-variant/30 flex gap-1 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNewsImageType('upload');
+                      setEditNewsImageUrl('');
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-label-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                      editNewsImageType === 'upload' ? 'bg-secondary text-on-secondary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high/50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                    Subir archivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNewsImageType('url');
+                      setEditNewsImageFile(null);
+                      setEditNewsImagePreview(null);
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-label-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                      editNewsImageType === 'url' ? 'bg-secondary text-on-secondary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high/50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">link</span>
+                    Pegar URL
+                  </button>
+                </div>
+
+                {editNewsImageType === 'upload' ? (
+                  <>
+                    <input ref={editFileInputRef} type="file" accept="image/*" onChange={handleEditImageChange} className="hidden" />
+                    {editNewsImagePreview ? (
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high">
+                        <img src={editNewsImagePreview} alt="Vista previa" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => { setEditNewsImagePreview(null); setEditNewsImageFile(null); }}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => editFileInputRef.current?.click()}
+                        className="w-full aspect-video bg-surface-container-high rounded-xl flex flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant hover:border-secondary transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-on-surface-variant text-[48px]">add_photo_alternate</span>
+                        <span className="text-label-md text-on-surface-variant">Clic para subir imagen</span>
+                        <span className="text-label-sm text-on-surface-variant/60">JPG, PNG o WebP</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="url"
+                      value={editNewsImageUrl}
+                      onChange={(e) => setEditNewsImageUrl(e.target.value)}
+                      placeholder="https://ejemplo.cl/imagen.jpg"
+                      className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
+                    />
+                    {editNewsImageUrl && editNewsImageUrl.startsWith('http') && (
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high border border-outline-variant/30">
+                        <img src={editNewsImageUrl} alt="Vista previa URL" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                        <button
+                          onClick={() => setEditNewsImageUrl('')}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
