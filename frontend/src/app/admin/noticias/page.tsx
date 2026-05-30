@@ -229,7 +229,7 @@ export default function AdminNoticiasPage() {
         is_published: true,
         source_name: 'NEXAA - Manual',
         tags: [],
-        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
+        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
       };
       if (finalImageUrl) body.image_url = finalImageUrl;
 
@@ -263,7 +263,7 @@ export default function AdminNoticiasPage() {
         published_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         views: 0,
-        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
+        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
       };
       setPublishedList(prev => [localNews, ...prev]);
       setPublishedMsg('Noticia guardada localmente (Supabase no configurado).');
