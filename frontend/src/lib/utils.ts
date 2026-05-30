@@ -125,3 +125,8 @@ export function getApiUrl(): string {
   return 'http://localhost:3001';
 }
 
+export function getNewsUrl(slug: string): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://celebrated-commitment-production-737c.up.railway.app';
+  return `${siteUrl}/noticia/${slug}`;
+}
+
