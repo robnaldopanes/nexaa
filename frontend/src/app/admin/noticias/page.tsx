@@ -143,8 +143,38 @@ export default function AdminNoticiasPage() {
   const handleSaveNewsEdit = async () => {
     if (!editingNewsItem) return;
 
-    // Usar preview si se subió archivo, sino usar URL
-    const finalImageUrl = editNewsImagePreview || editNewsImageUrl.trim();
+    let finalImageUrl = editNewsImageUrl.trim();
+
+    // Si hay una nueva imagen subida (base64), subirla directamente a Supabase Storage
+    if (editNewsImagePreview && editNewsImagePreview.startsWith('data:image')) {
+      try {
+        const matches = editNewsImagePreview.match(/^data:image\/([^;]+);base64,(.+)$/);
+        if (matches) {
+          let ext = matches[1].toLowerCase();
+          if (ext === 'jpeg') ext = 'jpg';
+          const fileName = `noticias/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const fileBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('news-images')
+            .upload(fileName, fileBytes, {
+              contentType: `image/${ext}`,
+              upsert: false
+            });
+          
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(fileName);
+            finalImageUrl = urlData.publicUrl;
+          } else {
+            finalImageUrl = editNewsImagePreview;
+          }
+        } else {
+          finalImageUrl = editNewsImagePreview;
+        }
+      } catch (e) {
+        finalImageUrl = editNewsImagePreview;
+      }
+    }
 
     try {
       const response = await fetch(`${apiUrl}/api/news/${editingNewsItem.id}`, {
@@ -318,17 +348,39 @@ export default function AdminNoticiasPage() {
     if (!title.trim() || !content.trim()) return;
     setPublishing(true);
 
-    // La imagen puede ser URL o base64 - el endpoint /api/news maneja ambos
-    const finalImageUrl = imageUrl.trim() || imagePreview || '';
+    let finalImageUrl = imageUrl.trim();
 
-    // Logging para diagnóstico
-    console.log('[FRONTEND] Publicando noticia:', {
-      title: title.trim().substring(0, 50),
-      imageUrl: imageUrl ? imageUrl.substring(0, 50) + '...' : 'VACIO',
-      imagePreview: imagePreview ? 'BASE64 (' + imagePreview.length + ' chars)' : 'NULL',
-      finalImageUrl: finalImageUrl ? (finalImageUrl.startsWith('data:') ? 'BASE64 (' + finalImageUrl.length + ' chars)' : finalImageUrl.substring(0, 80)) : 'VACIO',
-      apiUrl: apiUrl,
-    });
+    // Si hay una imagen subida (base64), subirla directamente a Supabase Storage
+    if (!finalImageUrl && imagePreview && imagePreview.startsWith('data:image')) {
+      try {
+        const matches = imagePreview.match(/^data:image\/([^;]+);base64,(.+)$/);
+        if (matches) {
+          let ext = matches[1].toLowerCase();
+          if (ext === 'jpeg') ext = 'jpg';
+          const fileName = `noticias/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const fileBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('news-images')
+            .upload(fileName, fileBytes, {
+              contentType: `image/${ext}`,
+              upsert: false
+            });
+          
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(fileName);
+            finalImageUrl = urlData.publicUrl;
+          } else {
+            // Si falla el upload, usar base64 como fallback
+            finalImageUrl = imagePreview;
+          }
+        } else {
+          finalImageUrl = imagePreview;
+        }
+      } catch (e) {
+        finalImageUrl = imagePreview;
+      }
+    }
 
     const body: Record<string, unknown> = {
       title: title.trim(),
@@ -348,26 +400,16 @@ export default function AdminNoticiasPage() {
     };
 
     try {
-      console.log('[FRONTEND] Enviando a:', `${apiUrl}/api/news`);
       const res = await fetch(`${apiUrl}/api/news`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      console.log('[FRONTEND] Respuesta status:', res.status);
-
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.error('[FRONTEND] Error del backend:', errorData);
         throw new Error(errorData.error || 'Error al publicar noticia');
       }
-
-      const responseData = await res.json();
-      console.log('[FRONTEND] Respuesta del backend:', {
-        id: responseData.id,
-        image_url: responseData.image_url ? (responseData.image_url.startsWith('data:') ? 'BASE64' : 'URL: ' + responseData.image_url.substring(0, 60)) : 'VACIO',
-      });
 
       if (typeof window !== 'undefined') {
         localStorage.removeItem('nexaa_home_cache');
@@ -375,7 +417,6 @@ export default function AdminNoticiasPage() {
 
       toast.success('¡Noticia publicada correctamente!');
     } catch (e: any) {
-      console.error('[FRONTEND] Error:', e);
       toast.error(`Error: ${e.message || 'No se pudo publicar la noticia'}`);
     }
 
