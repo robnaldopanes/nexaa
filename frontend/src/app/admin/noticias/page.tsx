@@ -206,70 +206,47 @@ export default function AdminNoticiasPage() {
     if (!title.trim() || !content.trim()) return;
     setPublishing(true);
 
+    // La imagen puede ser URL o base64 - el endpoint /api/news maneja ambos
+    const finalImageUrl = imageUrl.trim() || imagePreview || '';
+
+    const body: Record<string, unknown> = {
+      title: title.trim(),
+      content: content.trim(),
+      summary: summary.trim() || title.trim(),
+      category: category || 'Regional',
+      comuna: comuna || 'Ñuble',
+      is_featured: isFeatured,
+      is_breaking: isBreaking,
+      ai_generated: false,
+      is_approved: true,
+      is_published: true,
+      source_name: 'NEXAA Redacción',
+      tags: [],
+      image_url: finalImageUrl,
+      slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
+    };
+
     try {
-      // Subir imagen si es un archivo local (base64)
-      let finalImageUrl = imageUrl.trim();
-      if (!finalImageUrl && imagePreview && imagePreview.startsWith('data:image')) {
-        try {
-          const uploadRes = await fetch(`${apiUrl}/api/upload-image`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imagePreview, filename: `noticia-${Date.now()}.jpg` }),
-          });
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            if (uploadData.url) {
-              finalImageUrl = uploadData.url;
-            }
-          }
-        } catch (uploadErr) {
-          console.error('Error subiendo imagen:', uploadErr);
-        }
-        // Fallback: si el upload falló, usar base64 directamente
-        if (!finalImageUrl) {
-          finalImageUrl = imagePreview;
-        }
-      }
-
-      const body: Record<string, unknown> = {
-        title: title.trim(),
-        content: content.trim(),
-        summary: summary.trim() || title.trim(),
-        category: category || 'Regional',
-        comuna: comuna || 'Ñuble',
-        is_featured: isFeatured,
-        is_breaking: isBreaking,
-        ai_generated: false,
-        is_approved: true,
-        is_published: true,
-        source_name: 'NEXAA Redacción',
-        tags: [],
-        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
-      };
-      if (finalImageUrl) body.image_url = finalImageUrl;
-
       const res = await fetch(`${apiUrl}/api/news`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) throw new Error('Backend no disponible');
+      if (!res.ok) throw new Error('Error al publicar noticia');
 
-      // Limpiar caché para que la página principal se actualice
       if (typeof window !== 'undefined') {
         localStorage.removeItem('nexaa_home_cache');
       }
 
       toast.success('¡Noticia publicada correctamente!');
     } catch (e) {
-      // Modo local: guardar en la lista visible
       const localNews: NewsItem = {
         id: `local-${Date.now()}`,
         title: title.trim(),
         summary: summary.trim() || title.trim(),
         content: content.trim(),
-        image_url: imageUrl.trim() || imagePreview || '',
+        image_url: finalImageUrl,
         source_url: '',
         source_name: 'NEXAA Redacción',
         category: category || 'Regional',
@@ -286,7 +263,7 @@ export default function AdminNoticiasPage() {
         slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
       };
       setPublishedList(prev => [localNews, ...prev]);
-      toast.warning('Noticia guardada localmente (Supabase no configurado).');
+      toast.warning('Noticia guardada localmente.');
     }
 
     setManualPreview(false);
