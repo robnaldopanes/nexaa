@@ -228,7 +228,7 @@ export default function AdminNoticiasPage() {
         ai_generated: false,
         is_approved: true,
         is_published: true,
-        source_name: 'NEXAA - Manual',
+        source_name: 'NEXAA Redacción',
         tags: [],
         slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
       };
@@ -252,7 +252,7 @@ export default function AdminNoticiasPage() {
         content: content.trim(),
         image_url: imageUrl.trim() || imagePreview || '',
         source_url: '',
-        source_name: 'NEXAA - Manual',
+        source_name: 'NEXAA Redacción',
         category: category || 'Regional',
         comuna: comuna || 'Ñuble',
         tags: [],
