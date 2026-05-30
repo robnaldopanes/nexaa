@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { CATEGORIES, COMUNAS } from '@/lib/constants';
 import { getApiUrl } from '@/lib/utils';
 import { NewsItem, InboxItem } from '@/lib/types';
@@ -66,11 +67,12 @@ export default function InboxPage() {
       if (!res.ok) throw new Error('Error al guardar');
       
       setEditingItem(null);
-      alert('Cambios guardados con éxito en la noticia.');
+      toast.success('Cambios guardados con éxito en la noticia.');
+      setEditingItem(null);
       loadItems();
-      loadCounts();
     } catch (err) {
-      alert('Ocurrió un error al guardar los cambios de la noticia.');
+      console.error(err);
+      toast.error('Ocurrió un error al guardar los cambios de la noticia.');
     }
   };
 
@@ -84,7 +86,7 @@ export default function InboxPage() {
       } else {
         setActiveNational(null);
       }
-    } catch {
+    } catch (e) {
       setActiveNational(null);
     }
     setLoadingNational(false);
@@ -92,35 +94,27 @@ export default function InboxPage() {
 
   const handleDemoteActiveNational = async () => {
     if (!activeNational) return;
-    const confirmDemote = window.confirm('¿Estás seguro de que deseas quitar esta noticia de la portada como Destacado Nacional? Volverá al inbox de RSS como noticia pendiente.');
-    if (!confirmDemote) return;
-
-    try {
-      // 1. Encontrar el inbox item correspondiente
-      const resInbox = await fetch(`${apiUrl}/api/rss/by-published/${activeNational.id}`);
-      const inboxItem = await resInbox.json();
-
-      if (inboxItem && inboxItem.id) {
-        // 2. Si existe en el inbox, hacemos el PUT para pasarlo a 'pending' (lo que desvincula y borra la noticia)
-        await fetch(`${apiUrl}/api/rss/${inboxItem.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'pending' }),
-        });
-      } else {
-        // 3. Fallback si se subió manualmente: eliminarla de la tabla 'news'
-        await fetch(`${apiUrl}/api/news/${activeNational.id}`, {
-          method: 'DELETE',
-        });
-      }
-      
-      alert('Se ha removido el destacado nacional correctamente.');
-      loadItems();
-      loadCounts();
-      loadActiveNational();
-    } catch (err) {
-      alert('Error al desmarcar el destacado nacional.');
-    }
+    toast('¿Quitar esta noticia de la portada como Destacado Nacional?', {
+      description: 'Volverá al inbox de RSS como noticia pendiente.',
+      action: {
+        label: 'Confirmar',
+        onClick: async () => {
+          try {
+            const res = await fetch(`${apiUrl}/api/rss/${activeNational.id}/demote-national`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) throw new Error('Error al desmarcar');
+            toast.success('Se ha removido el destacado nacional correctamente.');
+            loadItems();
+            loadActiveNational();
+          } catch (err) {
+            console.error(err);
+            toast.error('Error al desmarcar el destacado nacional.');
+          }
+        },
+      },
+    });
   };
 
   const loadItems = async () => {
@@ -130,7 +124,7 @@ export default function InboxPage() {
       const res = await fetch(url);
       const { data } = await res.json();
       setItems(data || []);
-    } catch { setItems([]); }
+    } catch (e) { setItems([]); }
     setLoading(false);
   };
 
@@ -139,7 +133,7 @@ export default function InboxPage() {
       const res = await fetch(`${apiUrl}/api/rss/counts`);
       const data = await res.json();
       setCounts(data);
-    } catch {}
+    } catch (e) {}
   };
 
   useEffect(() => { 
@@ -153,11 +147,11 @@ export default function InboxPage() {
     try {
       const res = await fetch(`${apiUrl}/api/rss/fetch`, { method: 'POST' });
       const data = await res.json();
-      alert(`${data.message}`);
+      toast.info(`${data.message}`);
       loadItems();
       loadCounts();
       loadActiveNational();
-    } catch { alert('Error al buscar noticias'); }
+    } catch (e) { toast.error('Error al buscar noticias'); }
     setFetching(false);
   };
 
@@ -179,7 +173,7 @@ export default function InboxPage() {
       loadItems();
       loadCounts();
       loadActiveNational();
-    } catch { alert('Error al procesar'); }
+    } catch (e) { toast.error('Error al procesar'); }
   };
 
   return (

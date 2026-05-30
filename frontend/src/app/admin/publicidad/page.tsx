@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { getApiUrl } from '@/lib/utils';
 
 interface AdItem {
@@ -89,7 +90,7 @@ export default function AdminPublicidadPage() {
 
     // Fast check for file size (e.g. limit to 2MB to keep DB sync speedy)
     if (file.size > 2 * 1024 * 1024) {
-      alert('La imagen seleccionada supera los 2MB. Te sugerimos optimizarla o comprimirla antes de subirla.');
+      toast.warning('La imagen seleccionada supera los 2MB. Te sugerimos optimizarla o comprimirla antes de subirla.');
       return;
     }
 
@@ -146,8 +147,8 @@ export default function AdminPublicidadPage() {
   // Save ad (Create or Update)
   const handleSaveAd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Por favor, ingresa el nombre de la campaña.');
-    if (!imageUrl.trim()) return alert('Por favor, selecciona una imagen o introduce un enlace de imagen.');
+    if (!name.trim()) { toast.error('Por favor, ingresa el nombre de la campaña.'); return; }
+    if (!imageUrl.trim()) { toast.error('Por favor, selecciona una imagen o introduce un enlace de imagen.'); return; }
 
     setSaving(true);
     try {
@@ -184,7 +185,7 @@ export default function AdminPublicidadPage() {
       loadAds();
     } catch (err: any) {
       console.error(err);
-      alert(`Error al guardar anuncio: ${err.message}`);
+      toast.error(`Error al guardar anuncio: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -204,7 +205,7 @@ export default function AdminPublicidadPage() {
       loadAds();
     } catch (err: any) {
       console.error(err);
-      alert(`Error al cambiar el estado: ${err.message}`);
+      toast.error(`Error al cambiar el estado: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
@@ -213,21 +214,22 @@ export default function AdminPublicidadPage() {
   // Delete advertisement with confirm modal
   const handleDeleteAd = async (adId: string) => {
     if (processingId) return;
-    if (!confirm('¿Estás seguro de que deseas eliminar este anuncio permanentemente de la base de datos?')) return;
-
-    setProcessingId(adId);
-    try {
-      const res = await fetch(`${apiUrl}/api/ads/${adId}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Error al eliminar anuncio de la base de datos');
-      loadAds();
-    } catch (err: any) {
-      console.error(err);
-      alert(`Error al eliminar el anuncio: ${err.message}`);
-    } finally {
-      setProcessingId(null);
-    }
+    toast('¿Eliminar este anuncio permanentemente?', {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          try {
+            const res = await fetch(`${apiUrl}/api/ads/${adId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Error al eliminar');
+            setAds((prev) => prev.filter((a) => a.id !== adId));
+            toast.success('Anuncio eliminado');
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error desconocido';
+            toast.error(`Error al eliminar el anuncio: ${message}`);
+          }
+        },
+      },
+    });
   };
 
   return (

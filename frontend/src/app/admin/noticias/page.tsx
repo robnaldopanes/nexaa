@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { CATEGORIES, COMUNAS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
@@ -100,11 +101,11 @@ export default function AdminNoticiasPage() {
       }
 
       setEditingNewsItem(null);
-      alert('La noticia ha sido actualizada correctamente en la base de datos.');
+      toast.success('La noticia ha sido actualizada correctamente en la base de datos.');
       loadPublishedNews();
     } catch (err) {
       console.error(err);
-      alert('Error al guardar los cambios de la noticia.');
+      toast.error('Error al guardar los cambios de la noticia.');
     }
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -171,7 +172,7 @@ export default function AdminNoticiasPage() {
       setTimeout(() => setPublishedMsg(''), 4000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
-      alert(`Error al publicar la noticia: ${message}`);
+      toast.error(`Error al publicar la noticia: ${message}`);
     } finally {
       setPublishingAI(false);
     }
@@ -241,8 +242,8 @@ export default function AdminNoticiasPage() {
 
       if (!res.ok) throw new Error('Backend no disponible');
 
-      setPublishedMsg('¡Noticia publicada correctamente!');
-    } catch {
+      toast.success('¡Noticia publicada correctamente!');
+    } catch (e) {
       // Modo local: guardar en la lista visible
       const localNews: NewsItem = {
         id: `local-${Date.now()}`,
@@ -266,7 +267,7 @@ export default function AdminNoticiasPage() {
         slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
       };
       setPublishedList(prev => [localNews, ...prev]);
-      setPublishedMsg('Noticia guardada localmente (Supabase no configurado).');
+      toast.warning('Noticia guardada localmente (Supabase no configurado).');
     }
 
     setManualPreview(false);
@@ -282,8 +283,6 @@ export default function AdminNoticiasPage() {
     setImageType('upload');
     setIsFeatured(false);
     setIsBreaking(false);
-
-    setTimeout(() => setPublishedMsg(''), 4000);
   };
 
   return (
@@ -724,11 +723,12 @@ export default function AdminNoticiasPage() {
                         });
                         if (res.ok) {
                           loadPublishedNews();
+                          toast.success(item.is_featured ? 'Quitada de destacadas' : 'Destacada en carrusel');
                         } else {
-                          alert('Error al cambiar estado destacado');
+                          toast.error('Error al cambiar estado destacado');
                         }
-                      } catch {
-                        alert('Error de conexión');
+                      } catch (e) {
+                        toast.error('Error de conexión');
                       }
                     }}
                     className={`p-1.5 rounded-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm ${
@@ -753,22 +753,29 @@ export default function AdminNoticiasPage() {
                   <button
                     onClick={async () => {
                       const action = item.is_published ? 'quitar de la página principal' : 'publicar en la página principal';
-                      if (!confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} "${item.title}"?`)) return;
-                      try {
-                        const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
-                        const res = await fetch(`${apiUrl}/api/news/${item.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ is_published: !item.is_published }),
-                        });
-                        if (res.ok) {
-                          loadPublishedNews();
-                        } else {
-                          alert('Error al cambiar estado de publicación');
-                        }
-                      } catch {
-                        alert('Error de conexión');
-                      }
+                      toast(`¿${action.charAt(0).toUpperCase() + action.slice(1)} "${item.title}"?`, {
+                        action: {
+                          label: 'Confirmar',
+                          onClick: async () => {
+                            try {
+                              const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
+                              const res = await fetch(`${apiUrl}/api/news/${item.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ is_published: !item.is_published }),
+                              });
+                              if (res.ok) {
+                                loadPublishedNews();
+                                toast.success(item.is_published ? 'Noticia ocultada' : 'Noticia publicada');
+                              } else {
+                                toast.error('Error al cambiar estado de publicación');
+                              }
+                            } catch (e) {
+                              toast.error('Error de conexión');
+                            }
+                          },
+                        },
+                      });
                     }}
                     className={`p-1.5 rounded-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm ${
                       item.is_published

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Toaster } from 'sonner';
 import { getToken, removeToken } from '@/lib/auth';
 import { getApiUrl } from '@/lib/utils';
 
@@ -78,6 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-surface flex flex-col md:flex-row">
+      <Toaster position="top-right" richColors closeButton />
       {/* Sidebar desktop / Mobile overlay */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-surface-container-lowest border-r border-outline-variant/30 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
         <div className="px-5 py-4 border-b border-outline-variant/30 flex items-center justify-between">
