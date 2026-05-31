@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { CATEGORIES, COMUNAS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
@@ -42,6 +43,9 @@ export default function AdminNoticiasPage() {
   const [editNewsImageUrl, setEditNewsImageUrl] = useState('');
   const [editNewsIsFeatured, setEditNewsIsFeatured] = useState(false);
   const [editNewsIsBreaking, setEditNewsIsBreaking] = useState(false);
+  const [editNewsImagePreview, setEditNewsImagePreview] = useState<string | null>(null);
+  const [editNewsImageType, setEditNewsImageType] = useState<'upload' | 'url'>('url');
+  const [editNewsImageFile, setEditNewsImageFile] = useState<File | null>(null);
 
   const loadPublishedNews = async () => {
     setLoadingNews(true);
@@ -74,10 +78,104 @@ export default function AdminNoticiasPage() {
     setEditNewsImageUrl(item.image_url || '');
     setEditNewsIsFeatured(!!item.is_featured);
     setEditNewsIsBreaking(!!item.is_breaking);
+    setEditNewsImagePreview(null);
+    setEditNewsImageType('url');
+    setEditNewsImageFile(null);
+  };
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validar tamaño máximo (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen es muy grande. Máximo 2MB.');
+      return;
+    }
+
+    setEditNewsImageFile(file);
+    setEditNewsImageUrl('');
+
+    // Comprimir imagen antes de convertir a base64
+    const img = new window.Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > MAX_SIZE) {
+        height = Math.round((height * MAX_SIZE) / width);
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width = Math.round((width * MAX_SIZE) / height);
+        height = MAX_SIZE;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      try {
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setEditNewsImagePreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => setEditNewsImagePreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => setEditNewsImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
   };
 
   const handleSaveNewsEdit = async () => {
     if (!editingNewsItem) return;
+
+    let finalImageUrl = editNewsImageUrl.trim();
+
+    // Si hay una nueva imagen subida (base64), subirla directamente a Supabase Storage
+    if (editNewsImagePreview && editNewsImagePreview.startsWith('data:image')) {
+      try {
+        const matches = editNewsImagePreview.match(/^data:image\/([^;]+);base64,(.+)$/);
+        if (matches) {
+          let ext = matches[1].toLowerCase();
+          if (ext === 'jpeg') ext = 'jpg';
+          const fileName = `noticias/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const fileBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('news-images')
+            .upload(fileName, fileBytes, {
+              contentType: `image/${ext}`,
+              upsert: false
+            });
+          
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(fileName);
+            finalImageUrl = urlData.publicUrl;
+          } else {
+            finalImageUrl = editNewsImagePreview;
+          }
+        } else {
+          finalImageUrl = editNewsImagePreview;
+        }
+      } catch (e) {
+        finalImageUrl = editNewsImagePreview;
+      }
+    }
+
     try {
       const response = await fetch(`${apiUrl}/api/news/${editingNewsItem.id}`, {
         method: 'PUT',
@@ -88,7 +186,7 @@ export default function AdminNoticiasPage() {
           summary: editNewsSummary.trim(),
           category: editNewsCategory,
           comuna: editNewsComuna,
-          image_url: editNewsImageUrl.trim(),
+          image_url: finalImageUrl,
           is_featured: editNewsIsFeatured,
           is_breaking: editNewsIsBreaking,
           slug: editNewsTitle.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100),
@@ -100,14 +198,20 @@ export default function AdminNoticiasPage() {
       }
 
       setEditingNewsItem(null);
-      alert('La noticia ha sido actualizada correctamente en la base de datos.');
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexaa_home_cache');
+      }
+
+      toast.success('La noticia ha sido actualizada correctamente.');
       loadPublishedNews();
     } catch (err) {
       console.error(err);
-      alert('Error al guardar los cambios de la noticia.');
+      toast.error('Error al guardar los cambios de la noticia.');
     }
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyzeURL = async () => {
     if (!url.trim()) return;
@@ -171,7 +275,7 @@ export default function AdminNoticiasPage() {
       setTimeout(() => setPublishedMsg(''), 4000);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error desconocido';
-      alert(`Error al publicar la noticia: ${message}`);
+      toast.error(`Error al publicar la noticia: ${message}`);
     } finally {
       setPublishingAI(false);
     }
@@ -180,11 +284,58 @@ export default function AdminNoticiasPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validar tamaño máximo (2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen es muy grande. Máximo 2MB.');
+      return;
+    }
+
     setImageFile(file);
     setImageUrl('');
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+
+    // Comprimir imagen antes de convertir a base64
+    const img = new window.Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > MAX_SIZE) {
+        height = Math.round((height * MAX_SIZE) / width);
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width = Math.round((width * MAX_SIZE) / height);
+        height = MAX_SIZE;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      try {
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setImagePreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => setImagePreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
   };
 
   const handleManualPublish = () => {
@@ -197,60 +348,76 @@ export default function AdminNoticiasPage() {
     if (!title.trim() || !content.trim()) return;
     setPublishing(true);
 
-    try {
-      // Intentar guardar en backend
-      const body: Record<string, unknown> = {
-        title: title.trim(),
-        content: content.trim(),
-        summary: summary.trim() || title.trim(),
-        category: category || 'Regional',
-        comuna: comuna || 'Ñuble',
-        is_featured: isFeatured,
-        is_breaking: isBreaking,
-        ai_generated: false,
-        is_approved: true,
-        is_published: true,
-        source_name: 'NEXAA - Manual',
-        tags: [],
-        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
-      };
-      if (imageUrl.trim()) body.image_url = imageUrl.trim();
-      else if (imagePreview) body.image_url = imagePreview;
+    let finalImageUrl = imageUrl.trim();
 
+    // Si hay una imagen subida (base64), subirla directamente a Supabase Storage
+    if (!finalImageUrl && imagePreview && imagePreview.startsWith('data:image')) {
+      try {
+        const matches = imagePreview.match(/^data:image\/([^;]+);base64,(.+)$/);
+        if (matches) {
+          let ext = matches[1].toLowerCase();
+          if (ext === 'jpeg') ext = 'jpg';
+          const fileName = `noticias/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const fileBytes = Uint8Array.from(atob(matches[2]), c => c.charCodeAt(0));
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('news-images')
+            .upload(fileName, fileBytes, {
+              contentType: `image/${ext}`,
+              upsert: false
+            });
+          
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(fileName);
+            finalImageUrl = urlData.publicUrl;
+          } else {
+            // Si falla el upload, usar base64 como fallback
+            finalImageUrl = imagePreview;
+          }
+        } else {
+          finalImageUrl = imagePreview;
+        }
+      } catch (e) {
+        finalImageUrl = imagePreview;
+      }
+    }
+
+    const body: Record<string, unknown> = {
+      title: title.trim(),
+      content: content.trim(),
+      summary: summary.trim() || title.trim(),
+      category: category || 'Regional',
+      comuna: comuna || 'Ñuble',
+      is_featured: isFeatured,
+      is_breaking: isBreaking,
+      ai_generated: false,
+      is_approved: true,
+      is_published: true,
+      source_name: 'NEXAA Redacción',
+      tags: [],
+      image_url: finalImageUrl,
+      slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
+    };
+
+    try {
       const res = await fetch(`${apiUrl}/api/news`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      if (!res.ok) throw new Error('Backend no disponible');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al publicar noticia');
+      }
 
-      setPublishedMsg('¡Noticia publicada correctamente!');
-    } catch {
-      // Modo local: guardar en la lista visible
-      const localNews: NewsItem = {
-        id: `local-${Date.now()}`,
-        title: title.trim(),
-        summary: summary.trim() || title.trim(),
-        content: content.trim(),
-        image_url: imagePreview || '',
-        source_url: '',
-        source_name: 'NEXAA - Manual',
-        category: category || 'Regional',
-        comuna: comuna || 'Ñuble',
-        tags: [],
-        is_featured: isFeatured,
-        is_breaking: isBreaking,
-        is_approved: true,
-        is_published: true,
-        ai_generated: false,
-        published_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        views: 0,
-        slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80),
-      };
-      setPublishedList(prev => [localNews, ...prev]);
-      setPublishedMsg('Noticia guardada localmente (Supabase no configurado).');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('nexaa_home_cache');
+      }
+
+      toast.success('¡Noticia publicada correctamente!');
+    } catch (e: any) {
+      toast.error(`Error: ${e.message || 'No se pudo publicar la noticia'}`);
     }
 
     setManualPreview(false);
@@ -266,8 +433,6 @@ export default function AdminNoticiasPage() {
     setImageType('upload');
     setIsFeatured(false);
     setIsBreaking(false);
-
-    setTimeout(() => setPublishedMsg(''), 4000);
   };
 
   return (
@@ -708,11 +873,12 @@ export default function AdminNoticiasPage() {
                         });
                         if (res.ok) {
                           loadPublishedNews();
+                          toast.success(item.is_featured ? 'Quitada de destacadas' : 'Destacada en carrusel');
                         } else {
-                          alert('Error al cambiar estado destacado');
+                          toast.error('Error al cambiar estado destacado');
                         }
-                      } catch {
-                        alert('Error de conexión');
+                      } catch (e) {
+                        toast.error('Error de conexión');
                       }
                     }}
                     className={`p-1.5 rounded-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm ${
@@ -733,6 +899,44 @@ export default function AdminNoticiasPage() {
                   >
                     <span className="material-symbols-outlined text-[16px]">edit</span>
                     Editar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const action = item.is_published ? 'quitar de la página principal' : 'publicar en la página principal';
+                      toast(`¿${action.charAt(0).toUpperCase() + action.slice(1)} "${item.title}"?`, {
+                        action: {
+                          label: 'Confirmar',
+                          onClick: async () => {
+                            try {
+                              const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
+                              const res = await fetch(`${apiUrl}/api/news/${item.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ is_published: !item.is_published }),
+                              });
+                              if (res.ok) {
+                                loadPublishedNews();
+                                toast.success(item.is_published ? 'Noticia ocultada' : 'Noticia publicada');
+                              } else {
+                                toast.error('Error al cambiar estado de publicación');
+                              }
+                            } catch (e) {
+                              toast.error('Error de conexión');
+                            }
+                          },
+                        },
+                      });
+                    }}
+                    className={`p-1.5 rounded-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm ${
+                      item.is_published
+                        ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                        : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                    }`}
+                    title={item.is_published ? 'Quitar de la página principal' : 'Publicar en la página principal'}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {item.is_published ? 'visibility_off' : 'visibility'}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -817,17 +1021,83 @@ export default function AdminNoticiasPage() {
               </div>
 
               <div>
-                <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">URL de la Imagen (Pega aquí la dirección de la imagen copiada) *</label>
-                <input
-                  type="url"
-                  value={editNewsImageUrl}
-                  onChange={(e) => setEditNewsImageUrl(e.target.value)}
-                  placeholder="https://ejemplo.cl/imagen.jpg"
-                  className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
-                />
-                {editNewsImageUrl && editNewsImageUrl.startsWith('http') && (
-                  <div className="mt-2 relative aspect-video w-48 rounded-lg overflow-hidden bg-surface-container-high border border-outline-variant/30">
-                    <img src={editNewsImageUrl} alt="Vista previa" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">Imagen de la noticia</label>
+
+                {/* Toggle origen de imagen */}
+                <div className="bg-surface-container-low rounded-xl p-1 border border-outline-variant/30 flex gap-1 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNewsImageType('upload');
+                      setEditNewsImageUrl('');
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-label-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                      editNewsImageType === 'upload' ? 'bg-secondary text-on-secondary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high/50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                    Subir archivo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditNewsImageType('url');
+                      setEditNewsImageFile(null);
+                      setEditNewsImagePreview(null);
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-label-sm font-bold transition-all flex items-center justify-center gap-1 ${
+                      editNewsImageType === 'url' ? 'bg-secondary text-on-secondary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high/50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">link</span>
+                    Pegar URL
+                  </button>
+                </div>
+
+                {editNewsImageType === 'upload' ? (
+                  <>
+                    <input ref={editFileInputRef} type="file" accept="image/*" onChange={handleEditImageChange} className="hidden" />
+                    {editNewsImagePreview ? (
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high">
+                        <img src={editNewsImagePreview} alt="Vista previa" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => { setEditNewsImagePreview(null); setEditNewsImageFile(null); }}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => editFileInputRef.current?.click()}
+                        className="w-full aspect-video bg-surface-container-high rounded-xl flex flex-col items-center justify-center gap-2 border-2 border-dashed border-outline-variant hover:border-secondary transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-on-surface-variant text-[48px]">add_photo_alternate</span>
+                        <span className="text-label-md text-on-surface-variant">Clic para subir imagen</span>
+                        <span className="text-label-sm text-on-surface-variant/60">JPG, PNG o WebP</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="url"
+                      value={editNewsImageUrl}
+                      onChange={(e) => setEditNewsImageUrl(e.target.value)}
+                      placeholder="https://ejemplo.cl/imagen.jpg"
+                      className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
+                    />
+                    {editNewsImageUrl && editNewsImageUrl.startsWith('http') && (
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-surface-container-high border border-outline-variant/30">
+                        <img src={editNewsImageUrl} alt="Vista previa URL" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                        <button
+                          onClick={() => setEditNewsImageUrl('')}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

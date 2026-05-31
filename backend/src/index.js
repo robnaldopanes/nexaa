@@ -29,6 +29,7 @@ try { app.use('/api/auth', require('./routes/auth')); } catch(e) { console.warn(
 try { app.use('/api/ai', require('./routes/ai')); } catch(e) { console.warn('ai route failed:', e.message); }
 try { app.use('/api/ads', require('./routes/ads')); } catch(e) { console.warn('ads route failed:', e.message); }
 try { app.use('/api/rss', require('./routes/rss')); } catch(e) { console.warn('rss route failed:', e.message); }
+try { app.use('/api/upload', require('./routes/upload')); } catch(e) { console.warn('upload route failed:', e.message); }
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`NEXAA Backend running on port ${PORT}`);

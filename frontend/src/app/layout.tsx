@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from 'next';
+// Deploy: 2026-05-31 02:23:14
 import '@/styles/globals.css';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://celebrated-commitment-production-737c.up.railway.app';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'NEXAA - Noticias de Ñuble',
     template: '%s | NEXAA Ñuble',
@@ -19,10 +23,15 @@ export const metadata: Metadata = {
     siteName: 'NEXAA Ñuble',
     title: 'NEXAA - Noticias de Ñuble',
     description: 'Noticias regionales de Ñuble, Chile. Información actualizada con inteligencia artificial.',
+    url: SITE_URL,
   },
   twitter: {
     card: 'summary_large_image',
     title: 'NEXAA - Noticias de Ñuble',
+    description: 'Noticias regionales de Ñuble, Chile.',
+  },
+  alternates: {
+    canonical: SITE_URL,
   },
 };
 

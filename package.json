@@ -4,6 +4,7 @@
   "private": true,
   "description": "NEXAA - Plataforma de noticias regionales con IA para Chile",
   "scripts": {
+    "postinstall": "cd frontend && npm install",
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "start": "cd frontend && npm run start",

@@ -10,16 +10,31 @@ const parser = new Parser({
 const RSS_FEEDS = [
   // Medios regionales Ñuble
   { name: 'La Discusión', url: 'https://www.ladiscusion.cl/feed/', region: 'Ñuble' },
-  { name: 'Crónica Chillán', url: 'https://www.cronicachillan.cl/feed/', region: 'Ñuble' },
+  { name: 'Crónica Chillán', url: 'https://www.cronicachillan.cl/?feed=rss2', region: 'Ñuble' },
   { name: 'Radio Ñuble', url: 'https://www.radionuble.cl/feed/', region: 'Ñuble' },
+  { name: 'Radio Contacto', url: 'https://www.radiocontacto.cl/feed/', region: 'Ñuble' },
+  { name: 'Ñuble Actual', url: 'https://www.nubleactual.cl/feed/', region: 'Ñuble' },
+  { name: 'Ñuble Online', url: 'https://nubleonline.cl/feed/', region: 'Ñuble' },
   // Medios nacionales con cobertura Ñuble
   { name: 'BioBioChile Ñuble', url: 'https://www.biobiochile.cl/lista/categorias/region-nuble/rss', region: 'Ñuble' },
   { name: 'SoyChile Ñuble', url: 'https://www.soychile.cl/rss/nuble', region: 'Ñuble' },
   { name: 'EMOL Nacional', url: 'https://www.emol.com/rss/nacional.xml', region: 'Nacional' },
   { name: 'Cooperativa', url: 'https://www.cooperativa.cl/noticias/site/tax/port/rss_3_20___1.xml', region: 'Nacional' },
+  { name: 'Radio Bío Bío', url: 'https://feeds.biobiochile.cl/rss', region: 'Nacional' },
   // Municipales
   { name: 'Muni Chillán', url: 'https://www.municipalidadchillan.cl/feed/', region: 'Ñuble' },
   { name: 'Muni San Carlos', url: 'https://www.sancarlos.cl/feed/', region: 'Ñuble' },
+  { name: 'Muni San Carlos (nuevo)', url: 'https://www.munisancarlos.cl/feed/', region: 'Ñuble' },
+  // Universidades
+  { name: 'UdeC Noticias', url: 'https://noticias.udec.cl/feed/', region: 'Regional' },
+  { name: 'UBB Noticias', url: 'https://noticias.ubiobio.cl/feed/', region: 'Regional' },
+  // Salud
+  { name: 'Hospital de Chillán', url: 'https://hospitaldechillan.cl/web/feed/', region: 'Ñuble' },
+  // Oficiales
+  { name: 'Gobierno Regional Ñuble', url: 'https://www.goredenuble.cl/feed/', region: 'Ñuble' },
+  { name: 'Delegación Presidencial Ñuble', url: 'https://www.dprnuble.cl/feed/', region: 'Ñuble' },
+  { name: 'Core Ñuble', url: 'https://coredenuble.cl/feed/', region: 'Ñuble' },
+  { name: 'CONAF', url: 'https://www.conaf.cl/feed/', region: 'Nacional' },
   // Google News - Ñuble (múltiples búsquedas)
   { name: 'Google News Ñuble', url: 'https://news.google.com/rss/search?q=%C3%91uble+Chile&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
   { name: 'Google News Chillán', url: 'https://news.google.com/rss/search?q=Chill%C3%A1n&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
@@ -29,11 +44,14 @@ const RSS_FEEDS = [
   { name: 'Google News Emergencias Ñuble', url: 'https://news.google.com/rss/search?q=incendio+forestal+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
   { name: 'Google News Bomberos Chillán', url: 'https://news.google.com/rss/search?q=Bomberos+Chill%C3%A1n&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
   { name: 'Google News Emergencia Ñuble', url: 'https://news.google.com/rss/search?q=emergencia+%C3%91uble+Chile&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
-  // Oficiales
-  { name: 'Gobierno Regional Ñuble', url: 'https://www.goredenuble.cl/feed/', region: 'Ñuble' },
-  { name: 'Delegación Presidencial Ñuble', url: 'https://www.dprnuble.cl/feed/', region: 'Ñuble' },
-  // Otros
-  { name: 'Radio Bío Bío', url: 'https://feeds.biobiochile.cl/rss', region: 'Nacional' },
+  // Google News - Organismos sin RSS
+  { name: 'Google News BioBioChile Ñuble', url: 'https://news.google.com/rss/search?q=BioBioChile+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
+  { name: 'Google News Fiscalía Ñuble', url: 'https://news.google.com/rss/search?q=Fiscal%C3%ADa+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
+  { name: 'Google News Poder Judicial Ñuble', url: 'https://news.google.com/rss/search?q=Poder+Judicial+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
+  { name: 'Google News SENAPRED Ñuble', url: 'https://news.google.com/rss/search?q=SENAPRED+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
+  { name: 'Google News CONAF incendios', url: 'https://news.google.com/rss/search?q=CONAF+incendio+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
+  { name: 'Google News Meteochile Ñuble', url: 'https://news.google.com/rss/search?q=Meteochile+%C3%91uble+clima&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
+  { name: 'Google News SAG Ñuble', url: 'https://news.google.com/rss/search?q=SAG+%C3%91uble&hl=es-419&gl=CL&ceid=CL:es-419', region: 'Ñuble' },
 ];
 
 function cleanEllipsisText(text) {

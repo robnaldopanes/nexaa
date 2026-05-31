@@ -42,6 +42,29 @@ router.get('/:slug', async (req, res) => {
   }
 });
 
+router.post('/:id/view', async (req, res) => {
+  try {
+    const { data: current } = await supabase
+      .from('news')
+      .select('views')
+      .eq('id', req.params.id)
+      .single();
+
+    const newViews = (current?.views || 0) + 1;
+    const { data, error } = await supabase
+      .from('news')
+      .update({ views: newViews })
+      .eq('id', req.params.id)
+      .select('views')
+      .single();
+
+    if (error) throw error;
+    res.json({ views: data.views });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/auto-fetch', async (req, res) => {
   try {
     const articles = await fetchAllFeeds();

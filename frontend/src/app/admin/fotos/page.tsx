@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 
 interface SubmissionItem {
@@ -120,7 +121,7 @@ export default function AdminFotosPage() {
       await loadData();
     } catch (err: any) {
       console.error('Error al aprobar fotografía:', err);
-      alert(`Error al aprobar: ${err.message}`);
+      toast.error(`Error al aprobar: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
@@ -128,52 +129,43 @@ export default function AdminFotosPage() {
 
   const handleReject = async (id: string) => {
     if (processingId) return;
-    if (!confirm('¿Estás seguro de que deseas rechazar esta fotografía? Se descartará del inbox.')) return;
-    setProcessingId(id);
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${apiUrl}/api/photos/submissions/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'rejected' }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al rechazar solicitud');
-      }
-
-      await loadData();
-    } catch (err: any) {
-      console.error('Error al rechazar fotografía:', err);
-      alert(`Error al rechazar: ${err.message}`);
-    } finally {
-      setProcessingId(null);
-    }
+    toast('¿Rechazar esta fotografía?', {
+      description: 'Se descartará del inbox.',
+      action: {
+        label: 'Rechazar',
+        onClick: async () => {
+          try {
+            const { error } = await supabase.from('user_submissions').delete().eq('id', id);
+            if (error) throw error;
+            setSubmissions((prev) => prev.filter((s) => s.id !== id));
+            toast.success('Fotografía rechazada');
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error desconocido';
+            toast.error(`Error al rechazar: ${message}`);
+          }
+        },
+      },
+    });
   };
 
   const handleDeletePhoto = async (id: string) => {
     if (processingId) return;
-    if (!confirm('¿Estás seguro de que deseas eliminar permanentemente esta foto de la galería pública?')) return;
-    setProcessingId(id);
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${apiUrl}/api/photos/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Error al eliminar foto');
-      }
-
-      await loadData();
-    } catch (err: any) {
-      console.error('Error al eliminar fotografía:', err);
-      alert(`Error al eliminar: ${err.message}`);
-    } finally {
-      setProcessingId(null);
-    }
+    toast('¿Eliminar permanentemente esta foto de la galería pública?', {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          try {
+            const { error } = await supabase.from('photos').delete().eq('id', id);
+            if (error) throw error;
+            setPhotos((prev) => prev.filter((p) => p.id !== id));
+            toast.success('Foto eliminada');
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Error desconocido';
+            toast.error(`Error al eliminar: ${message}`);
+          }
+        },
+      },
+    });
   };
 
   const handleToggleFeatured = async (photo: PhotoItem) => {
@@ -197,7 +189,7 @@ export default function AdminFotosPage() {
       await loadData();
     } catch (err: any) {
       console.error('Error al cambiar destacado:', err);
-      alert(`Error al cambiar destacado: ${err.message}`);
+      toast.error(`Error al cambiar destacado: ${err.message}`);
     } finally {
       setProcessingId(null);
     }
@@ -208,7 +200,7 @@ export default function AdminFotosPage() {
     try {
       const parsed = typeof contentStr === 'string' ? JSON.parse(contentStr) : contentStr;
       return parsed || {};
-    } catch {
+    } catch (e) {
       return {};
     }
   };

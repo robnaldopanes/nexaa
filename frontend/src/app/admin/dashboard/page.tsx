@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { getApiUrl } from '@/lib/utils';
 import { NewsItem, AdSpace } from '@/lib/types';
 
@@ -44,7 +45,7 @@ export default function AdminDashboardPage() {
       } else {
         setActiveNational(null);
       }
-    } catch {
+    } catch (e) {
       setActiveNational(null);
     }
     setLoadingNational(false);
@@ -79,7 +80,7 @@ export default function AdminDashboardPage() {
       }
 
       setStats({ visitsToday, pendingAI, activeAds });
-    } catch {
+    } catch (e) {
       setStats({ visitsToday: 0, pendingAI: 0, activeAds: 0 });
     }
     setLoadingStats(false);
@@ -91,7 +92,7 @@ export default function AdminDashboardPage() {
       const res = await fetch(`${apiUrl}/api/rss?status=pending&limit=5`);
       const { data } = await res.json();
       setModerationItems(data || []);
-    } catch {
+    } catch (e) {
       setModerationItems([]);
     }
     setLoadingModeration(false);
@@ -99,30 +100,26 @@ export default function AdminDashboardPage() {
 
   const handleDemoteActiveNational = async () => {
     if (!activeNational) return;
-    const confirmDemote = window.confirm('¿Estás seguro de que deseas quitar esta noticia de la portada como Destacado Nacional? Volverá al inbox de RSS como noticia pendiente.');
-    if (!confirmDemote) return;
-
-    try {
-      const resInbox = await fetch(`${apiUrl}/api/rss/by-published/${activeNational.id}`);
-      const inboxItem = await resInbox.json();
-
-      if (inboxItem && inboxItem.id) {
-        await fetch(`${apiUrl}/api/rss/${inboxItem.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'pending' }),
-        });
-      } else {
-        await fetch(`${apiUrl}/api/news/${activeNational.id}`, {
-          method: 'DELETE',
-        });
-      }
-      
-      alert('Se ha removido el destacado nacional correctamente.');
-      loadActiveNational();
-    } catch {
-      alert('Error al desmarcar el destacado nacional.');
-    }
+    toast('¿Quitar esta noticia de la portada como Destacado Nacional?', {
+      description: 'Volverá al inbox de RSS como noticia pendiente.',
+      action: {
+        label: 'Confirmar',
+        onClick: async () => {
+          try {
+            const res = await fetch(`${apiUrl}/api/rss/${activeNational.id}/demote-national`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (!res.ok) throw new Error('Error al desmarcar');
+            toast.success('Se ha removido el destacado nacional correctamente.');
+            loadActiveNational();
+          } catch (err) {
+            console.error(err);
+            toast.error('Error al desmarcar el destacado nacional.');
+          }
+        },
+      },
+    });
   };
 
   useEffect(() => {
@@ -429,7 +426,7 @@ export default function AdminDashboardPage() {
                               await fetch(`${apiUrl}/api/rss/${item.id}/approve`, { method: 'POST' });
                               loadModerationItems();
                               loadStats();
-                            } catch {}
+                            } catch (e) {}
                           }}
                           className="p-2 bg-secondary text-on-secondary rounded-lg hover:bg-secondary/90 transition-all active:scale-90" 
                           aria-label="Aprobar noticia"
@@ -446,7 +443,7 @@ export default function AdminDashboardPage() {
                               });
                               loadModerationItems();
                               loadStats();
-                            } catch {}
+                            } catch (e) {}
                           }}
                           className="p-2 bg-error text-on-error rounded-lg hover:bg-error/90 transition-all active:scale-90" 
                           aria-label="Rechazar noticia"

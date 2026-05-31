@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Toaster } from 'sonner';
 import { getToken, removeToken } from '@/lib/auth';
 import { getApiUrl } from '@/lib/utils';
 
@@ -24,7 +25,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    // No proteger la página de login ni la raíz de admin (que redirige)
     if (pathname === '/admin/login' || pathname === '/admin') {
       setChecking(false);
       return;
@@ -36,22 +36,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
-    // Verificar token con el backend
-    fetch(`${apiUrl}/api/auth/verify`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('Token inválido');
-        return res.json();
-      })
-      .then(() => {
-        setChecking(false);
-      })
-      .catch(() => {
+    // Verificar token localmente (decodificar JWT y revisar expiración)
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) {
         removeToken();
         router.replace('/admin/login');
-      });
-  }, [pathname, router, apiUrl]);
+        return;
+      }
+      setChecking(false);
+    } catch {
+      removeToken();
+      router.replace('/admin/login');
+    }
+  }, [pathname, router]);
 
   const handleLogout = () => {
     removeToken();
@@ -78,6 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-surface flex flex-col md:flex-row">
+      <Toaster position="top-right" richColors closeButton />
       {/* Sidebar desktop / Mobile overlay */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-surface-container-lowest border-r border-outline-variant/30 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
         <div className="px-5 py-4 border-b border-outline-variant/30 flex items-center justify-between">

@@ -76,13 +76,22 @@ const CATEGORY_IMAGES: Record<string, string> = {
   'Regional': 'https://images.unsplash.com/photo-1473163928189-364b2c4e1135?w=800&q=80',
 };
 
+export function isDataUrl(url: string): boolean {
+  return url.startsWith('data:image');
+}
+
 export function getNewsImage(imageUrl: string | null | undefined, category: string): string {
-  if (imageUrl && imageUrl.trim() && imageUrl.startsWith('http')) {
-    const isGoogleImage = imageUrl.includes('googleusercontent.com') || 
-                          imageUrl.includes('google.com') || 
-                          imageUrl.includes('gstatic.com');
-    if (!isGoogleImage) {
+  if (imageUrl && imageUrl.trim()) {
+    if (imageUrl.startsWith('data:image')) {
       return imageUrl;
+    }
+    if (imageUrl.startsWith('http')) {
+      const isGoogleImage = imageUrl.includes('googleusercontent.com') || 
+                            imageUrl.includes('google.com') || 
+                            imageUrl.includes('gstatic.com');
+      if (!isGoogleImage) {
+        return imageUrl;
+      }
     }
   }
   return '/images/placeholder-news.svg';
@@ -114,5 +123,10 @@ export function getApiUrl(): string {
     return `${window.location.protocol}//${window.location.hostname}:3001`;
   }
   return 'http://localhost:3001';
+}
+
+export function getNewsUrl(slug: string): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://celebrated-commitment-production-737c.up.railway.app';
+  return `${siteUrl}/noticia/${slug}`;
 }
 
