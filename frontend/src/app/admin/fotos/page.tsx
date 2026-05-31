@@ -155,8 +155,16 @@ export default function AdminFotosPage() {
         label: 'Eliminar',
         onClick: async () => {
           try {
-            const { error } = await supabase.from('photos').delete().eq('id', id);
-            if (error) throw error;
+            const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
+            const res = await fetch(`${apiUrl}/api/photos/${id}`, {
+              method: 'DELETE',
+            });
+            
+            if (!res.ok) {
+              const errorData = await res.json();
+              throw new Error(errorData.error || 'Error al eliminar foto');
+            }
+
             setPhotos((prev) => prev.filter((p) => p.id !== id));
             toast.success('Foto eliminada');
           } catch (err: unknown) {
