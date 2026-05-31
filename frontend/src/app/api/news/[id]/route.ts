@@ -13,57 +13,55 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json();
     const supabase = getSupabase();
 
-    // Si image_url es base64, subir a Storage obligatoriamente
+    // Si image_url es base64, intentar subir a Storage
     if (body.image_url && typeof body.image_url === 'string' && body.image_url.startsWith('data:image')) {
-      const matches = body.image_url.match(/^data:image\/([^;]+);base64,(.+)$/);
-      
-      if (!matches) {
-        return NextResponse.json({ error: 'Formato de imagen inválido' }, { status: 400 });
+      try {
+        const matches = body.image_url.match(/^data:image\/([^;]+);base64,(.+)$/);
+        
+        if (matches) {
+          let ext = matches[1].toLowerCase();
+          if (ext.includes(';')) ext = ext.split(';')[0];
+          
+          const mimeMap: Record<string, string> = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'webp': 'image/webp',
+            'gif': 'image/gif',
+          };
+          const contentType = mimeMap[ext] || 'image/jpeg';
+          const fileExt = ext === 'jpeg' ? 'jpg' : ext;
+
+          const buffer = Buffer.from(matches[2], 'base64');
+          
+          if (buffer.length <= 5 * 1024 * 1024) {
+            const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+            const filePath = `uploads/${uniqueName}`;
+
+            const { data: buckets } = await supabase.storage.listBuckets();
+            if (!buckets?.some(b => b.name === 'news-images')) {
+              await supabase.storage.createBucket('news-images', {
+                public: true,
+                fileSizeLimit: 5 * 1024 * 1024,
+                allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+              });
+            }
+
+            const { error: uploadError } = await supabase.storage
+              .from('news-images')
+              .upload(filePath, buffer, { contentType, upsert: false });
+
+            if (!uploadError) {
+              const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(filePath);
+              body.image_url = urlData.publicUrl;
+            }
+            // Si falla el upload, mantener el base64
+          }
+        }
+      } catch (uploadErr) {
+        console.error('Error uploading image:', uploadErr);
+        // Mantener el base64 como fallback
       }
-
-      let ext = matches[1].toLowerCase();
-      if (ext.includes(';')) ext = ext.split(';')[0];
-      
-      // Mapear extensión a MIME type válido
-      const mimeMap: Record<string, string> = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp',
-        'gif': 'image/gif',
-      };
-      const contentType = mimeMap[ext] || 'image/jpeg';
-      const fileExt = ext === 'jpeg' ? 'jpg' : ext;
-
-      const buffer = Buffer.from(matches[2], 'base64');
-      
-      if (buffer.length > 5 * 1024 * 1024) {
-        return NextResponse.json({ error: 'La imagen es muy grande (máximo 5MB)' }, { status: 400 });
-      }
-
-      const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
-      const filePath = `uploads/${uniqueName}`;
-
-      const { data: buckets } = await supabase.storage.listBuckets();
-      if (!buckets?.some(b => b.name === 'news-images')) {
-        await supabase.storage.createBucket('news-images', {
-          public: true,
-          fileSizeLimit: 5 * 1024 * 1024,
-          allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-        });
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('news-images')
-        .upload(filePath, buffer, { contentType, upsert: false });
-
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-        return NextResponse.json({ error: 'Error al subir la imagen a Storage' }, { status: 500 });
-      }
-
-      const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(filePath);
-      body.image_url = urlData.publicUrl;
     }
 
     const { data, error } = await supabase.from('news').update(body).eq('id', params.id).select().single();
