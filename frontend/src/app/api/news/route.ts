@@ -16,11 +16,10 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const comuna = searchParams.get('comuna');
     const featured = searchParams.get('featured');
-    const full = searchParams.get('full'); // Si se pasa full=1, devolver todos los campos
+    const full = searchParams.get('full');
 
     const supabase = getSupabase();
     
-    // Seleccionar solo los campos necesarios para el feed (reduce tamaño de 650KB a ~50KB)
     const selectFields = full 
       ? '*' 
       : 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views';
@@ -47,7 +46,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const supabase = getSupabase();
 
-    // Si image_url es base64, intentar subir a Storage
+    const hasImage = body.image_url ? (body.image_url.startsWith('data:') ? 'BASE64' : 'URL') : 'NONE';
+    console.log(`[NEWS] title=${body.title?.substring(0,30)} image=${hasImage} len=${body.image_url?.length || 0}`);
+
     if (body.image_url && typeof body.image_url === 'string' && body.image_url.startsWith('data:image')) {
       try {
         const matches = body.image_url.match(/^data:image\/([^;]+);base64,(.+)$/);
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
           const fileExt = ext === 'jpeg' ? 'jpg' : ext;
 
           const buffer = Buffer.from(matches[2], 'base64');
+          console.log(`[NEWS] buffer=${buffer.length}bytes ext=${fileExt}`);
           
           if (buffer.length <= 5 * 1024 * 1024) {
             const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
@@ -81,20 +83,26 @@ export async function POST(request: NextRequest) {
               });
             }
 
+            console.log(`[NEWS] uploading to ${filePath}`);
             const { error: uploadError } = await supabase.storage
               .from('news-images')
               .upload(filePath, buffer, { contentType, upsert: false });
 
-            if (!uploadError) {
+            if (uploadError) {
+              console.error(`[NEWS] upload error:`, uploadError);
+            } else {
               const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(filePath);
               body.image_url = urlData.publicUrl;
+              console.log(`[NEWS] upload OK: ${body.image_url}`);
             }
-            // Si falla el upload, mantener el base64 (no retornar error)
+          } else {
+            console.log(`[NEWS] image too large: ${buffer.length}`);
           }
+        } else {
+          console.log(`[NEWS] regex no match`);
         }
       } catch (uploadErr) {
-        console.error('Error uploading image:', uploadErr);
-        // Mantener el base64 como fallback
+        console.error('[NEWS] upload exception:', uploadErr);
       }
     }
 
@@ -103,8 +111,11 @@ export async function POST(request: NextRequest) {
       .insert({ ...body, ai_generated: body.ai_generated ?? false })
       .select().single();
     if (error) throw error;
+    
+    console.log(`[NEWS] saved: image_url=${data.image_url?.substring(0,60)}`);
     return NextResponse.json(data, { status: 201 });
   } catch (err: any) {
+    console.error('[NEWS] error:', err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
