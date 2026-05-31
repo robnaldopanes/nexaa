@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+// Deploy: 2026-05-31 02:23:14
 import '@/styles/globals.css';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 
