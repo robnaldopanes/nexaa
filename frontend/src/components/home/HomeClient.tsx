@@ -14,7 +14,7 @@ import PhotoGallery from '@/components/news/PhotoGallery';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
-import { setCachedHomeData, getCachedHomeData } from '@/lib/newsCache';
+import { setCachedHomeData, getCachedHomeData, isCacheStale } from '@/lib/newsCache';
 
 export default function HomeClient() {
   const router = useRouter();
@@ -31,13 +31,14 @@ export default function HomeClient() {
 
   const loadFromCache = useCallback(() => {
     const cached = getCachedHomeData();
-    if (cached) {
+    if (cached && !isCacheStale(cached)) {
       setNationalFeatured(cached.nationalFeatured);
       setFeaturedNewsList(cached.featuredNewsList);
       setLatestNews(cached.latestNews);
       setMoreNews(cached.moreNews || []);
       setPhotos(cached.photos);
       setAds(cached.ads);
+      setReportaje(cached.reportaje || null);
       setLoading(false);
       return true;
     }
@@ -46,17 +47,18 @@ export default function HomeClient() {
 
   const fetchAndCache = useCallback(async () => {
     try {
-      // Solo seleccionar campos necesarios para el feed (reduce tamaño de 650KB a ~50KB)
       const feedFields = 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views';
 
-      const [nationalRes, featuredRes, latestRes, photosRes] = await Promise.all([
+      const [nationalRes, featuredRes, latestRes, photosRes, reportajeRes] = await Promise.all([
         supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_featured', true).eq('comuna', 'Nacional').order('published_at', { ascending: false }).limit(1),
         supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_featured', true).order('published_at', { ascending: false }),
         supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(20),
         supabase.from('photos').select('id,title,description,image_url,photographer,comuna,category,likes,is_approved,is_featured,created_at').eq('is_approved', true).order('created_at', { ascending: false }).limit(4),
+        supabase.from('news').select('id,title,summary,image_url,category,comuna,published_at,source_name,slug').eq('is_published', true).eq('is_approved', true).eq('category', 'Reportajes').order('published_at', { ascending: false }).limit(1).single(),
       ]);
 
       const national = nationalRes.data && nationalRes.data.length > 0 ? nationalRes.data[0] as NewsItem : null;
+      const reportajeData = reportajeRes.data ? reportajeRes.data as NewsItem : null;
 
       let featuredList = (featuredRes.data || []) as NewsItem[];
       if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
@@ -97,30 +99,12 @@ export default function HomeClient() {
         created_at: p.created_at || new Date().toISOString(),
       }));
 
-      let adsData: AdSpace[] = [];
-      try {
-        const resAds = await fetch(`${apiUrl}/api/ads?active=true`);
-        if (resAds.ok) {
-          adsData = await resAds.json();
-          if (!adsData || adsData.length === 0) {
-            const resSeed = await fetch(`${apiUrl}/api/ads/seed`);
-            if (resSeed.ok) {
-              const seedResult = await resSeed.json();
-              if (seedResult.success) {
-                const resReload = await fetch(`${apiUrl}/api/ads?active=true`);
-                if (resReload.ok) adsData = await resReload.json();
-              }
-            }
-          }
-        }
-      } catch {}
-
       setNationalFeatured(national);
       setFeaturedNewsList(featuredList);
       setLatestNews(latestSliced.length > 0 ? latestSliced : featuredList.slice(1));
       setMoreNews(moreNewsList);
       setPhotos(mappedPhotos);
-      setAds(adsData || []);
+      setReportaje(reportajeData);
       setLoading(false);
 
       setCachedHomeData({
@@ -129,7 +113,8 @@ export default function HomeClient() {
         latestNews: latestSliced.length > 0 ? latestSliced : featuredList.slice(1),
         moreNews: moreNewsList,
         photos: mappedPhotos,
-        ads: adsData || [],
+        ads: [],
+        reportaje: reportajeData,
       });
     } catch (err) {
       console.error('Error fetching home data:', err);
@@ -138,12 +123,9 @@ export default function HomeClient() {
   }, [apiUrl]);
 
   useEffect(() => {
-    const hasCache = loadFromCache();
-    if (hasCache) {
-      fetchAndCache();
-    } else {
-      fetchAndCache();
-    }
+    const cached = loadFromCache();
+    if (cached) return; // Caché fresco, no hacer fetch
+    fetchAndCache();
   }, [loadFromCache, fetchAndCache]);
 
   useEffect(() => {
@@ -155,26 +137,19 @@ export default function HomeClient() {
   }, [featuredNewsList]);
 
   useEffect(() => {
-    async function fetchReportaje() {
+    async function fetchAds() {
       try {
-        const { data } = await supabase
-          .from('news')
-          .select('id,title,summary,image_url,category,comuna,published_at,source_name,slug')
-          .eq('is_published', true)
-          .eq('is_approved', true)
-          .eq('category', 'Reportajes')
-          .order('published_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (data) {
-          setReportaje(data as NewsItem);
+        const resAds = await fetch(`${apiUrl}/api/ads?active=true`);
+        if (resAds.ok) {
+          const adsData = await resAds.json();
+          if (adsData && adsData.length > 0) {
+            setAds(adsData);
+          }
         }
       } catch {}
     }
-
-    fetchReportaje();
-  }, []);
+    fetchAds();
+  }, [apiUrl]);
 
   const handleSearchSubmit = (q: string) => {
     if (q.trim()) { router.push(`/buscar?q=${encodeURIComponent(q.trim())}`); }
@@ -233,7 +208,7 @@ export default function HomeClient() {
             {ads.filter((a) => a.is_active && a.location === 'Banner Principal').slice(0, 1).map((ad) => (
               <div key={ad.id} className="px-margin-mobile mt-stack-sm">
                 <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-24 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
+                        <img src={ad.image_url} alt={ad.name} loading="lazy" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
                 </a>
               </div>
             ))}
@@ -270,7 +245,7 @@ export default function HomeClient() {
                   {idx === 1 && ads.filter((a) => a.is_active && a.location === 'Entre noticias').slice(0, 1).map((ad) => (
                     <div key={ad.id} className="mt-gutter">
                       <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                        <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
+                  <img src={ad.image_url} alt={ad.name} loading="lazy" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
                         <span className="absolute top-1 right-1 bg-black/40 text-white text-[8px] px-1.5 py-0.5 rounded-full">Ad</span>
                       </a>
                     </div>
@@ -300,7 +275,7 @@ export default function HomeClient() {
             {ads.filter((a) => a.is_active && a.location === 'Barra lateral').slice(0, 1).map((ad) => (
               <div key={ad.id} className="px-margin-mobile mt-stack-md">
                 <a href={ad.link_url || '#'} target={ad.link_url ? '_blank' : undefined} rel="nofollow" onClick={() => handleAdClick(ad.id)} className="block w-full h-20 rounded-xl overflow-hidden bg-surface-container-high hover:opacity-90 transition-opacity">
-                  <img src={ad.image_url} alt={ad.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
+                        <img src={ad.image_url} alt={ad.name} loading="lazy" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.opacity = '0.3'; }} />
                 </a>
               </div>
             ))}

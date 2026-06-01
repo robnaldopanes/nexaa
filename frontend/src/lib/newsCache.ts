@@ -11,6 +11,7 @@ interface HomeCacheData {
   moreNews: NewsItem[];
   photos: PhotoItem[];
   ads: AdSpace[];
+  reportaje?: NewsItem | null;
   timestamp: number;
 }
 
