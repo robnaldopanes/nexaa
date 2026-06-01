@@ -88,19 +88,55 @@ export default function AdminPublicidadPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Fast check for file size (e.g. limit to 2MB to keep DB sync speedy)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.warning('La imagen seleccionada supera los 2MB. Te sugerimos optimizarla o comprimirla antes de subirla.');
-      return;
-    }
+    // Comprimir imagen antes de convertir a base64
+    const img = new window.Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setImageFilePreview(base64);
-      setImageUrl(base64);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX_SIZE = 1200;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > MAX_SIZE) {
+        height = Math.round((height * MAX_SIZE) / width);
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width = Math.round((width * MAX_SIZE) / height);
+        height = MAX_SIZE;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx?.drawImage(img, 0, 0, width, height);
+
+      try {
+        const compressed = canvas.toDataURL('image/jpeg', 0.8);
+        setImageFilePreview(compressed);
+        setImageUrl(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setImageFilePreview(reader.result as string);
+          setImageUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     };
-    reader.readAsDataURL(file);
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageFilePreview(reader.result as string);
+        setImageUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
   };
 
   // Open creation modal

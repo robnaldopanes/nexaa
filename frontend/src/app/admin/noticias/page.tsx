@@ -87,12 +87,6 @@ export default function AdminNoticiasPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validar tamaño máximo (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen es muy grande. Máximo 2MB.');
-      return;
-    }
-
     setEditNewsImageFile(file);
     setEditNewsImageUrl('');
 
@@ -284,12 +278,6 @@ export default function AdminNoticiasPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validar tamaño máximo (2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('La imagen es muy grande. Máximo 2MB.');
-      return;
-    }
 
     setImageFile(file);
     setImageUrl('');
