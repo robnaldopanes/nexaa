@@ -76,7 +76,8 @@ INSERT INTO categories (name, slug, icon) VALUES
   ('Turismo', 'turismo', 'hiking'),
   ('Economía', 'economia', 'trending_up'),
   ('Cultura', 'cultura', 'theater_comedy'),
-  ('Social', 'social', 'groups')
+  ('Social', 'social', 'groups'),
+  ('Reportajes', 'reportajes', 'auto_stories')
 ON CONFLICT (slug) DO NOTHING;
 
 -- ========================

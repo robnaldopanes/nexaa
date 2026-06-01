@@ -9,6 +9,7 @@ export const CATEGORIES = [
   { name: 'Economía', slug: 'economia', icon: 'trending_up' },
   { name: 'Cultura', slug: 'cultura', icon: 'theater_comedy' },
   { name: 'Social', slug: 'social', icon: 'groups' },
+  { name: 'Reportajes', slug: 'reportajes', icon: 'auto_stories' },
 ];
 
 export const COMUNAS = [

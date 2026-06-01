@@ -8,11 +8,11 @@ import Footer from '@/components/layout/Footer';
 import SearchBar from '@/components/ui/SearchBar';
 import SectionHeader from '@/components/ui/SectionHeader';
 import CategoryChips from '@/components/news/CategoryChips';
-import AISummary from '@/components/news/AISummary';
+import ReportajeHero from '@/components/news/ReportajeHero';
 import NewsCard from '@/components/news/NewsCard';
 import PhotoGallery from '@/components/news/PhotoGallery';
 import { supabase } from '@/lib/supabase';
-import { cleanEllipsis, getApiUrl } from '@/lib/utils';
+import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
 import { setCachedHomeData, getCachedHomeData } from '@/lib/newsCache';
 
@@ -24,7 +24,7 @@ export default function HomeClient() {
   const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>([]);
   const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
   const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(null);
-  const [aiSummaries, setAiSummaries] = useState<{ number: string; text: string }[]>([]);
+  const [reportaje, setReportaje] = useState<NewsItem | null>(null);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [ads, setAds] = useState<AdSpace[]>([]);
   const apiUrl = getApiUrl();
@@ -60,15 +60,16 @@ export default function HomeClient() {
 
       let featuredList = (featuredRes.data || []) as NewsItem[];
       if (national) featuredList = featuredList.filter((item) => item.id !== national.id);
+      featuredList = featuredList.filter((item) => item.category !== 'Reportajes');
 
       if (featuredList.length === 0) {
         const { data: breaking } = await supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_breaking', true).order('published_at', { ascending: false });
-        featuredList = (breaking || []) as NewsItem[];
+        featuredList = (breaking || []).filter((item) => item.category !== 'Reportajes') as NewsItem[];
         if (national) featuredList = featuredList.filter((item) => item.id !== national!.id);
       }
       if (featuredList.length === 0) {
         const { data: fallback } = await supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(5);
-        featuredList = (fallback || []) as NewsItem[];
+        featuredList = (fallback || []).filter((item) => item.category !== 'Reportajes') as NewsItem[];
         if (national) featuredList = featuredList.filter((item) => item.id !== national!.id);
       }
       featuredList = featuredList.slice(0, 5);
@@ -77,6 +78,7 @@ export default function HomeClient() {
       const featuredIds = new Set(featuredList.map((item) => item.id));
       if (featuredIds.size > 0) latestList = latestList.filter((item) => !featuredIds.has(item.id));
       if (national) latestList = latestList.filter((item) => item.id !== national.id);
+      latestList = latestList.filter((item) => item.category !== 'Reportajes');
       const latestSliced = latestList.slice(0, 5);
 
       const moreNewsList = latestList.filter((item) => !featuredIds.has(item.id) && (!national || item.id !== national.id)).slice(5, 20);
@@ -153,43 +155,26 @@ export default function HomeClient() {
   }, [featuredNewsList]);
 
   useEffect(() => {
-    const CACHE_KEY = 'nexaa_daily_summary';
-    const cached = typeof window !== 'undefined' ? localStorage.getItem(CACHE_KEY) : null;
-    if (cached) {
+    async function fetchReportaje() {
       try {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < 12 * 60 * 60 * 1000) {
-          setAiSummaries(parsed.items);
-          return;
+        const { data } = await supabase
+          .from('news')
+          .select('id,title,summary,image_url,category,comuna,published_at,source_name,slug')
+          .eq('is_published', true)
+          .eq('is_approved', true)
+          .eq('category', 'Reportajes')
+          .order('published_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data) {
+          setReportaje(data as NewsItem);
         }
       } catch {}
     }
 
-    async function fetchAISummary() {
-      try {
-        const res = await fetch(`${apiUrl}/api/ai/daily-summary`, { method: 'POST' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.items?.length > 0) {
-            setAiSummaries(data.items);
-            if (typeof window !== 'undefined') {
-              localStorage.setItem(CACHE_KEY, JSON.stringify({ items: data.items, timestamp: Date.now() }));
-            }
-            return;
-          }
-        }
-      } catch {}
-
-      if (latestNews.length > 0) {
-        setAiSummaries(latestNews.slice(0, 3).map((item, index) => ({
-          number: `0${index + 1}`,
-          text: cleanEllipsis(item.summary) || item.title,
-        })));
-      }
-    }
-
-    fetchAISummary();
-  }, [apiUrl, latestNews]);
+    fetchReportaje();
+  }, []);
 
   const handleSearchSubmit = (q: string) => {
     if (q.trim()) { router.push(`/buscar?q=${encodeURIComponent(q.trim())}`); }
@@ -218,25 +203,15 @@ export default function HomeClient() {
       <>
         <TopAppBar />
         <main className="pt-14 pb-20 overflow-x-hidden">
-          <div className="px-margin-mobile mt-stack-lg space-y-4">
-            <div className="ai-glow rounded-xl p-4 bg-surface-container-lowest shadow-sm animate-pulse flex items-center gap-2 h-12">
-              <span className="material-symbols-outlined material-symbols-filled text-secondary/50 text-[20px]">auto_awesome</span>
-              <div className="h-3 bg-surface-container-high rounded w-40" />
-            </div>
-            {[1,2,3].map(i => (
-              <div key={i} className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 shadow-sm animate-pulse">
-                <div className="flex gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div className="h-3 bg-surface-container-high rounded w-20" />
-                    <div className="h-4 bg-surface-container-high rounded w-full" />
-                    <div className="h-4 bg-surface-container-high rounded w-3/4" />
-                    <div className="h-3 bg-surface-container-high rounded w-24" />
-                  </div>
-                  <div className="w-24 h-24 rounded-lg bg-surface-container-high flex-shrink-0" />
+            <div className="px-margin-mobile mt-stack-lg space-y-4">
+              <div className="relative w-full aspect-[21/9] rounded-2xl bg-surface-container-high animate-pulse overflow-hidden">
+                <div className="absolute top-4 left-4 w-24 h-7 bg-surface-container-highest rounded-full" />
+                <div className="absolute bottom-5 left-5 right-5 space-y-3">
+                  <div className="h-5 bg-surface-container-highest rounded w-3/4" />
+                  <div className="h-4 bg-surface-container-highest rounded w-1/2" />
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
           <Footer />
         </main>
         <BottomNav />
@@ -274,7 +249,7 @@ export default function HomeClient() {
             )}
 
             <section className="px-margin-mobile mt-stack-md">
-              {aiSummaries.length > 0 && <AISummary items={aiSummaries} />}
+              {reportaje && <ReportajeHero reportaje={reportaje} />}
             </section>
 
             {nationalFeatured && (

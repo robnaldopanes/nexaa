@@ -76,6 +76,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
 
   const imageUrl = getNewsImage(news.image_url, news.category);
   const schema = generateNewsSchema(news);
+  const isReportaje = news.category === 'Reportajes';
 
   return (
     <>
@@ -85,9 +86,16 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
         <article className="px-margin-mobile mt-stack-md">
           {/* Categoría y Comuna */}
           <div className="flex items-center gap-2">
-            <span className="text-secondary text-label-sm font-label-sm uppercase tracking-wider">
-              {news.category}
-            </span>
+            {isReportaje ? (
+              <span className="inline-flex items-center gap-1.5 bg-secondary text-on-secondary text-label-sm font-label-sm px-3 py-1 rounded-full uppercase tracking-wider">
+                <span className="material-symbols-outlined text-[14px]">auto_stories</span>
+                Reportaje
+              </span>
+            ) : (
+              <span className="text-secondary text-label-sm font-label-sm uppercase tracking-wider">
+                {news.category}
+              </span>
+            )}
             {news.comuna && (
               <>
                 <span className="text-on-surface-variant/40 text-[12px]">&bull;</span>
@@ -100,7 +108,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
           </div>
 
           {/* Titular */}
-          <h1 className="text-headline-lg-mobile font-headline-lg-mobile text-primary mt-2 leading-tight">
+          <h1 className={`text-headline-lg-mobile font-headline-lg-mobile text-primary mt-2 leading-tight ${isReportaje ? 'text-[28px] md:text-[36px]' : ''}`}>
             {news.title}
           </h1>
 
@@ -113,7 +121,7 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
 
           {/* Imagen Principal */}
           {imageUrl ? (
-            <div className="mt-stack-md aspect-video bg-surface-container-high rounded-xl overflow-hidden shadow-sm">
+            <div className={`mt-stack-md bg-surface-container-high rounded-xl overflow-hidden shadow-sm ${isReportaje ? 'aspect-[21/9]' : 'aspect-video'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={imageUrl} alt={news.title} className="w-full h-full object-cover" />
             </div>
@@ -144,13 +152,13 @@ export default async function NewsDetailPage({ params }: { params: { slug: strin
 
           {/* Resumen */}
           {news.summary && (
-            <div className="mt-stack-md p-4 bg-surface-container-low border-l-4 border-secondary rounded-r-xl italic text-body-lg text-on-surface-variant">
+            <div className={`mt-stack-md p-4 bg-surface-container-low border-l-4 border-secondary rounded-r-xl italic text-body-lg text-on-surface-variant ${isReportaje ? 'text-xl leading-relaxed' : ''}`}>
               &ldquo;{cleanEllipsis(news.summary)}&rdquo;
             </div>
           )}
 
           {/* Contenido Completo */}
-          <div className="mt-stack-md space-y-4 text-body-lg text-on-surface leading-relaxed">
+          <div className={`mt-stack-md space-y-4 text-body-lg text-on-surface leading-relaxed ${isReportaje ? 'text-xl space-y-6 leading-[1.8]' : ''}`}>
             {(cleanEllipsis(news.content) || '').split('\n').filter((p: string) => p.trim() !== '').map((para: string, i: number) => (
               <p key={i}>{para}</p>
             ))}
