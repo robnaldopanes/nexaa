@@ -16,25 +16,16 @@ import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
 import { setCachedHomeData, getCachedHomeData, isCacheStale } from '@/lib/newsCache';
 
-interface HomeInitialData {
-  nationalFeatured: NewsItem | null;
-  featuredNewsList: NewsItem[];
-  latestNews: NewsItem[];
-  moreNews: NewsItem[];
-  photos: PhotoItem[];
-  reportaje: NewsItem | null;
-}
-
-export default function HomeClient({ initialData }: { initialData: HomeInitialData }) {
+export default function HomeClient() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [latestNews, setLatestNews] = useState<NewsItem[]>(initialData.latestNews);
-  const [moreNews, setMoreNews] = useState<NewsItem[]>(initialData.moreNews);
-  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>(initialData.featuredNewsList);
+  const [loading, setLoading] = useState(true);
+  const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
+  const [moreNews, setMoreNews] = useState<NewsItem[]>([]);
+  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>([]);
   const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
-  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(initialData.nationalFeatured);
-  const [reportaje, setReportaje] = useState<NewsItem | null>(initialData.reportaje);
-  const [photos, setPhotos] = useState<PhotoItem[]>(initialData.photos);
+  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(null);
+  const [reportaje, setReportaje] = useState<NewsItem | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [ads, setAds] = useState<AdSpace[]>([]);
   const apiUrl = getApiUrl();
 
@@ -113,6 +104,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       setMoreNews(moreNewsList);
       setPhotos(mappedPhotos);
       setReportaje(reportajeData);
+      setLoading(false);
 
       setCachedHomeData({
         nationalFeatured: national,
@@ -125,6 +117,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       });
     } catch (err) {
       console.error('Error fetching home data:', err);
+      setLoading(false);
     }
   }, []);
 
@@ -178,6 +171,26 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       }
     });
   }, [ads, apiUrl]);
+
+  if (loading) {
+    return (
+      <>
+        <TopAppBar />
+        <main className="pt-14 pb-20 overflow-x-hidden">
+          <div className="px-margin-mobile mt-stack-lg space-y-4">
+            <div className="relative w-full aspect-[16/10] rounded-xl bg-surface-container-high animate-pulse overflow-hidden">
+              <div className="absolute bottom-4 left-4 right-4 space-y-3">
+                <div className="h-5 bg-surface-container-highest rounded w-3/4" />
+                <div className="h-4 bg-surface-container-highest rounded w-1/2" />
+              </div>
+            </div>
+          </div>
+          <Footer />
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
 
   return (
     <>
