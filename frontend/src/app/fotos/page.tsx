@@ -128,6 +128,40 @@ export default function PhotosPage() {
     setSending(true);
 
     try {
+      let finalImageUrl = imagePreview;
+
+      // Si la imagen es base64, subirla a Storage primero
+      if (imagePreview.startsWith('data:image')) {
+        const matches = imagePreview.match(/^data:image\/([^;]+);base64,(.+)$/);
+        if (matches) {
+          let ext = matches[1].toLowerCase();
+          if (ext.includes(';')) ext = ext.split(';')[0];
+          const fileExt = ext === 'jpeg' ? 'jpg' : ext;
+          
+          const byteCharacters = atob(matches[2]);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: `image/${fileExt}` });
+
+          const uniqueName = `user-photos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('news-images')
+            .upload(uniqueName, blob, {
+              contentType: `image/${fileExt}`,
+              upsert: false,
+            });
+
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage.from('news-images').getPublicUrl(uniqueName);
+            finalImageUrl = urlData.publicUrl;
+          }
+        }
+      }
+
       // 1. Guardar en user_submissions en Supabase (tiene RLS abierto para inserción pública)
       const { error } = await supabase
         .from('user_submissions')
@@ -140,7 +174,7 @@ export default function PhotosPage() {
             photographer_email: email.trim(),
             comuna: comuna || null,
           }),
-          image_url: imagePreview,
+          image_url: finalImageUrl,
           user_name: photographer.trim() || 'Anónimo',
           user_email: email.trim() || null,
           status: 'pending'
@@ -154,7 +188,7 @@ export default function PhotosPage() {
           body: JSON.stringify({
             title: title.trim(),
             description: description.trim(),
-            image_url: imagePreview,
+            image_url: finalImageUrl,
             photographer: photographer.trim(),
             photographer_email: email.trim(),
             comuna: comuna || null,
