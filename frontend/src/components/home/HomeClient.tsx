@@ -16,43 +16,22 @@ import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
 import { setCachedHomeData, getCachedHomeDataStale, isCacheStale, isCacheUsable } from '@/lib/newsCache';
 
-interface InitialData {
-  nationalFeatured: NewsItem | null;
-  featuredNewsList: NewsItem[];
-  latestNews: NewsItem[];
-  moreNews: NewsItem[];
-  photos: PhotoItem[];
-  ads: AdSpace[];
-  reportaje: NewsItem | null;
-  timestamp: number;
-}
-
-interface HomeClientProps {
-  initialData?: InitialData | null;
-}
-
-export default function HomeClient({ initialData }: HomeClientProps = {}) {
+export default function HomeClient() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const hasInitialData = !!initialData;
-  const [loading, setLoading] = useState(!hasInitialData);
+  const [hasContent, setHasContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [latestNews, setLatestNews] = useState<NewsItem[]>(initialData?.latestNews || []);
-  const [moreNews, setMoreNews] = useState<NewsItem[]>(initialData?.moreNews || []);
-  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>(initialData?.featuredNewsList || []);
+  const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
+  const [moreNews, setMoreNews] = useState<NewsItem[]>([]);
+  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>([]);
   const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
-  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(initialData?.nationalFeatured || null);
-  const [reportaje, setReportaje] = useState<NewsItem | null>(initialData?.reportaje || null);
-  const [photos, setPhotos] = useState<PhotoItem[]>(initialData?.photos || []);
-  const [ads, setAds] = useState<AdSpace[]>(initialData?.ads || []);
+  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(null);
+  const [reportaje, setReportaje] = useState<NewsItem | null>(null);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [ads, setAds] = useState<AdSpace[]>([]);
   const apiUrl = getApiUrl();
   const fetchInProgressRef = useRef(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const loadFromCache = useCallback((): { loaded: boolean; needsRefresh: boolean } => {
+  const loadFromCache = useCallback((): boolean => {
     try {
       const cached = getCachedHomeDataStale();
       if (cached && isCacheUsable(cached)) {
@@ -63,14 +42,13 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
         setPhotos(cached.photos || []);
         setAds(cached.ads || []);
         setReportaje(cached.reportaje || null);
-        setLoading(false);
-        setError(null);
-        return { loaded: true, needsRefresh: isCacheStale(cached) };
+        setHasContent(true);
+        return true;
       }
     } catch (e) {
       console.error('Error loading cache:', e);
     }
-    return { loaded: false, needsRefresh: true };
+    return false;
   }, []);
 
   const fetchAndCache = useCallback(async () => {
@@ -84,26 +62,13 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
-        const cached = getCachedHomeDataStale();
-        if (cached && isCacheUsable(cached)) {
-          setNationalFeatured(cached.nationalFeatured);
-          setFeaturedNewsList(cached.featuredNewsList || []);
-          setLatestNews(cached.latestNews || []);
-          setMoreNews(cached.moreNews || []);
-          setPhotos(cached.photos || []);
-          setAds(cached.ads || []);
-          setReportaje(cached.reportaje || null);
-          setLoading(false);
-          setError(null);
-          return;
-        }
-        setError('No se pudo conectar al servidor. Verifica tu conexión.');
-        setLoading(false);
+        const loaded = loadFromCache();
+        if (!loaded) setError('No se pudo conectar al servidor. Verifica tu conexión.');
         return;
       }
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 12000)
+        setTimeout(() => reject(new Error('Timeout')), 10000)
       );
 
       const dataPromise = Promise.all([
@@ -165,6 +130,7 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
       setPhotos(mappedPhotos);
       setReportaje(reportajeData);
       setError(null);
+      setHasContent(true);
 
       setCachedHomeData({
         nationalFeatured: national,
@@ -175,29 +141,14 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
         ads: [],
         reportaje: reportajeData,
       });
-
-      setLoading(false);
     } catch (err) {
       console.error('Error fetching home data:', err);
-
-      const cached = getCachedHomeDataStale();
-      if (cached && isCacheUsable(cached) && latestNews.length === 0) {
-        setNationalFeatured(cached.nationalFeatured);
-        setFeaturedNewsList(cached.featuredNewsList || []);
-        setLatestNews(cached.latestNews || []);
-        setMoreNews(cached.moreNews || []);
-        setPhotos(cached.photos || []);
-        setAds(cached.ads || []);
-        setReportaje(cached.reportaje || null);
-        setError(null);
-      } else {
-        setError('No se pudieron cargar las noticias. Toca para reintentar.');
-      }
-      setLoading(false);
+      const loaded = loadFromCache();
+      if (!loaded) setError('No se pudieron cargar las noticias. Toca para reintentar.');
     } finally {
       fetchInProgressRef.current = false;
     }
-  }, []);
+  }, [loadFromCache]);
 
   const fetchAndCacheRef = useRef(fetchAndCache);
   useEffect(() => {
@@ -206,40 +157,27 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
 
   const handleRetry = useCallback(() => {
     setError(null);
-    setLoading(true);
     fetchAndCacheRef.current?.();
   }, []);
 
   useEffect(() => {
-    if (hasInitialData && initialData) {
-      setCachedHomeData({
-        nationalFeatured: initialData.nationalFeatured,
-        featuredNewsList: initialData.featuredNewsList,
-        latestNews: initialData.latestNews,
-        moreNews: initialData.moreNews,
-        photos: initialData.photos,
-        ads: initialData.ads,
-        reportaje: initialData.reportaje,
-      });
-      setLoading(false);
-      return;
+    const loaded = loadFromCache();
+    if (loaded) {
+      fetchAndCache();
+    } else {
+      fetchAndCache();
     }
 
-    const { loaded, needsRefresh } = loadFromCache();
-    if (loaded && !needsRefresh) return;
-    fetchAndCache();
-
     const safetyTimeout = setTimeout(() => {
-      if (fetchInProgressRef.current) {
-        console.warn('Safety timeout: forzando fin de loading');
-        setLoading(false);
+      if (fetchInProgressRef.current && !hasContent) {
+        console.warn('Safety timeout');
         setError('La carga está tardando demasiado. Toca para reintentar.');
         fetchInProgressRef.current = false;
       }
-    }, 20000);
+    }, 15000);
 
     return () => clearTimeout(safetyTimeout);
-  }, [loadFromCache, fetchAndCache]);
+  }, [loadFromCache, fetchAndCache, hasContent]);
 
   useEffect(() => {
     if (featuredNewsList.length <= 1) return;
@@ -252,6 +190,7 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
   useEffect(() => {
     async function fetchAds() {
       try {
+        if (!apiUrl) return;
         const resAds = await fetch(`${apiUrl}/api/ads?active=true`);
         if (resAds.ok) {
           const adsData = await resAds.json();
@@ -274,6 +213,7 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
   };
 
   const handleAdClick = (adId: string) => {
+    if (!apiUrl) return;
     fetch(`${apiUrl}/api/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
   };
 
@@ -281,56 +221,13 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
     if (ads.length === 0) return;
     ads.forEach((ad) => {
       if (ad.is_active) {
+        if (!apiUrl) return;
         fetch(`${apiUrl}/api/ads/${ad.id}/impression`, { method: 'POST' }).catch(() => {});
       }
     });
   }, [ads, apiUrl]);
 
-  if (!mounted) {
-    return (
-      <>
-        <TopAppBar />
-        <main className="pt-14 pb-20 overflow-x-hidden" />
-        <BottomNav />
-      </>
-    );
-  }
-
-  if (loading) {
-    return (
-      <>
-        <TopAppBar />
-        <main className="pt-14 pb-20 overflow-x-hidden">
-          <div className="px-margin-mobile mt-stack-lg space-y-4">
-            <div className="relative w-full aspect-[16/10] rounded-xl bg-surface-container-high animate-pulse overflow-hidden">
-              <div className="absolute bottom-4 left-4 right-4 space-y-3">
-                <div className="h-5 bg-surface-container-highest rounded w-3/4" />
-                <div className="h-4 bg-surface-container-highest rounded w-1/2" />
-              </div>
-            </div>
-            {error && (
-              <div className="bg-error-container rounded-xl p-4 flex flex-col items-center gap-3 mt-4">
-                <span className="material-symbols-outlined text-error text-[32px]">
-                  cloud_off
-                </span>
-                <p className="text-on-error-container text-body-md text-center">{error}</p>
-                <button
-                  onClick={handleRetry}
-                  className="px-5 py-2 bg-primary text-on-primary rounded-lg text-label-md font-label-md font-bold active:scale-95"
-                >
-                  Reintentar
-                </button>
-              </div>
-            )}
-          </div>
-          <Footer />
-        </main>
-        <BottomNav />
-      </>
-    );
-  }
-
-  if (error && latestNews.length === 0 && featuredNewsList.length === 0) {
+  if (!hasContent && error) {
     return (
       <>
         <TopAppBar />
@@ -343,7 +240,7 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
               Sin conexión
             </h2>
             <p className="text-body-md text-on-surface-variant mb-4 max-w-xs">
-              {error || 'No se pudieron cargar las noticias. Verifica tu conexión a internet.'}
+              {error}
             </p>
             <button
               onClick={handleRetry}
@@ -352,6 +249,22 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
               <span className="material-symbols-outlined text-[20px]">refresh</span>
               Reintentar
             </button>
+          </div>
+          <Footer />
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
+
+  if (!hasContent) {
+    return (
+      <>
+        <TopAppBar />
+        <main className="pt-14 pb-20 overflow-x-hidden">
+          <div className="flex flex-col items-center justify-center min-h-[40vh] px-margin-mobile text-center">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
+            <p className="text-body-md text-on-surface-variant">Cargando noticias...</p>
           </div>
           <Footer />
         </main>
@@ -378,7 +291,7 @@ export default function HomeClient({ initialData }: HomeClientProps = {}) {
             </button>
           </div>
         )}
-        <div className={error ? 'mt-stack-md' : 'mt-stack-md'}>
+        <div className="mt-stack-md">
           <SearchBar placeholder="Buscar noticias en Chillán..." onSearch={handleSearchSubmit} />
         </div>
             <section className="mt-stack-md">
