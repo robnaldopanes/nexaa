@@ -824,14 +824,15 @@ export default function AdminNoticiasPage() {
                         {item.title}
                       </p>
                       {item.source_url && (
-                        <a 
-                          href={item.source_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="inline-flex items-center text-secondary hover:text-primary transition-colors flex-shrink-0"
+                        <a
+                          href={item.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-secondary border border-secondary/30 rounded-md hover:bg-secondary hover:text-on-secondary transition-colors flex-shrink-0 text-label-sm font-label-sm font-bold"
                           title={`Ver fuente original: ${item.source_name || 'Enlace'}`}
                         >
-                          <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          Fuente
                         </a>
                       )}
                     </div>
