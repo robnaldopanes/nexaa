@@ -43,6 +43,8 @@ export default function AdminNoticiasPage() {
   const [editNewsImageUrl, setEditNewsImageUrl] = useState('');
   const [editNewsIsFeatured, setEditNewsIsFeatured] = useState(false);
   const [editNewsIsBreaking, setEditNewsIsBreaking] = useState(false);
+  const [editNewsSourceUrl, setEditNewsSourceUrl] = useState('');
+  const [editNewsSourceName, setEditNewsSourceName] = useState('');
   const [editNewsImagePreview, setEditNewsImagePreview] = useState<string | null>(null);
   const [editNewsImageType, setEditNewsImageType] = useState<'upload' | 'url'>('url');
   const [editNewsImageFile, setEditNewsImageFile] = useState<File | null>(null);
@@ -78,6 +80,8 @@ export default function AdminNoticiasPage() {
     setEditNewsImageUrl(item.image_url || '');
     setEditNewsIsFeatured(!!item.is_featured);
     setEditNewsIsBreaking(!!item.is_breaking);
+    setEditNewsSourceUrl(item.source_url || '');
+    setEditNewsSourceName(item.source_name || '');
     setEditNewsImagePreview(null);
     setEditNewsImageType('url');
     setEditNewsImageFile(null);
@@ -183,6 +187,8 @@ export default function AdminNoticiasPage() {
           image_url: finalImageUrl,
           is_featured: editNewsIsFeatured,
           is_breaking: editNewsIsBreaking,
+          source_url: editNewsSourceUrl.trim() || null,
+          source_name: editNewsSourceName.trim() || null,
           slug: editNewsTitle.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100),
         }),
       });
@@ -382,6 +388,7 @@ export default function AdminNoticiasPage() {
       is_approved: true,
       is_published: true,
       source_name: 'NEXAA Redacción',
+      source_url: null,
       tags: [],
       image_url: finalImageUrl,
       slug: title.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) + '-' + Date.now().toString(36),
@@ -1098,6 +1105,29 @@ export default function AdminNoticiasPage() {
                   <input type="checkbox" checked={editNewsIsBreaking} onChange={(e) => setEditNewsIsBreaking(e.target.checked)} className="rounded" />
                   <span className="text-body-md text-on-surface">Urgente</span>
                 </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">Fuente (nombre)</label>
+                  <input
+                    type="text"
+                    value={editNewsSourceName}
+                    onChange={(e) => setEditNewsSourceName(e.target.value)}
+                    placeholder="Ej: La Discusión, Radio Ñuble, etc."
+                    className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
+                  />
+                </div>
+                <div>
+                  <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1">URL de la fuente original</label>
+                  <input
+                    type="url"
+                    value={editNewsSourceUrl}
+                    onChange={(e) => setEditNewsSourceUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
+                  />
+                </div>
               </div>
             </div>
 
