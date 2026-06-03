@@ -39,6 +39,7 @@ export default function InboxPage() {
   const [editCategory, setEditCategory] = useState('');
   const [editComuna, setEditComuna] = useState('');
   const [editImageUrl, setEditImageUrl] = useState('');
+  const [extractingImage, setExtractingImage] = useState(false);
 
   const openEditModal = (item: InboxItem) => {
     setEditingItem(item);
@@ -65,7 +66,7 @@ export default function InboxPage() {
       });
 
       if (!res.ok) throw new Error('Error al guardar');
-      
+
       setEditingItem(null);
       toast.success('Cambios guardados con éxito en la noticia.');
       setEditingItem(null);
@@ -73,6 +74,44 @@ export default function InboxPage() {
     } catch (err) {
       console.error(err);
       toast.error('Ocurrió un error al guardar los cambios de la noticia.');
+    }
+  };
+
+  const handleExtractImage = async () => {
+    if (!editingItem || !editingItem.source_url) {
+      toast.error('Esta noticia no tiene URL de fuente');
+      return;
+    }
+
+    setExtractingImage(true);
+    const toastId = toast.loading('Extrayendo imagen de la fuente...');
+
+    try {
+      const res = await fetch(`${apiUrl}/api/inbox/extract-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_url: editingItem.source_url,
+          inbox_id: editingItem.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al extraer imagen');
+      }
+
+      setEditImageUrl(data.image_url);
+      toast.success(
+        `Imagen extraída ✓ (${Math.round(data.size / 1024)}KB, fuente: ${data.source})`,
+        { id: toastId }
+      );
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'No se pudo extraer la imagen', { id: toastId });
+    } finally {
+      setExtractingImage(false);
     }
   };
 
@@ -536,11 +575,37 @@ export default function InboxPage() {
                     placeholder="https://ejemplo.cl/ruta-a-la-imagen.jpg"
                     className="w-full px-4 py-2.5 bg-surface-container-low border border-outline-variant rounded-xl focus:border-secondary outline-none text-body-md"
                   />
+                  {editingItem?.source_url && (
+                    <button
+                      type="button"
+                      onClick={handleExtractImage}
+                      disabled={extractingImage}
+                      className="px-4 py-2.5 bg-secondary text-on-secondary rounded-xl text-label-sm font-label-sm font-bold hover:opacity-90 active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                      title="Extraer imagen automáticamente desde la URL de la fuente"
+                    >
+                      {extractingImage ? (
+                        <>
+                          <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                          <span>Extrayendo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[18px]">image_search</span>
+                          <span>Extraer</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 {editImageUrl && editImageUrl.startsWith('http') && (
                   <div className="mt-2 relative aspect-video w-48 rounded-lg overflow-hidden bg-surface-container-high border border-outline-variant/30">
                     <img src={editImageUrl} alt="Vista previa" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
                   </div>
+                )}
+                {editingItem?.source_url && (
+                  <p className="text-label-sm text-on-surface-variant mt-1">
+                    💡 Click en &quot;Extraer&quot; para buscar la imagen en la fuente original
+                  </p>
                 )}
               </div>
             </div>
