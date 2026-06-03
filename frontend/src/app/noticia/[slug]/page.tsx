@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   try {
     const { data } = await supabaseServer
       .from('news')
-      .select('*')
+      .select('id,title,summary,image_url,category,comuna,published_at,source_name,slug,tags')
       .eq('slug', params.slug)
       .single();
 
@@ -28,7 +28,7 @@ async function fetchNews(slug: string): Promise<NewsItem | null> {
   try {
     const { data } = await supabaseServer
       .from('news')
-      .select('*')
+      .select('id,title,summary,content,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,source_url,slug,views,tags,ai_generated')
       .eq('slug', slug)
       .single();
     return data || null;

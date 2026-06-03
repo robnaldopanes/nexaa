@@ -43,9 +43,11 @@ export function useNews({
       setLoading(true);
       setError(null);
 
+      const listFields = 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views,tags';
+
       let query = supabase
         .from('news')
-        .select('*')
+        .select(listFields)
         .order(orderBy, { ascending })
         .limit(limit);
 
@@ -109,7 +111,7 @@ export function useNewsBySlug(slug: string): UseNewsBySlugReturn {
 
         const { data, error: fetchError } = await supabase
           .from('news')
-          .select('*')
+          .select('id,title,summary,content,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,source_url,slug,views,tags,ai_generated')
           .eq('slug', slug)
           .single();
 

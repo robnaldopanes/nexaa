@@ -44,7 +44,7 @@ function SearchContent() {
       setSearched(true);
       const { data, error } = await supabase
         .from('news')
-        .select('*')
+        .select('id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views')
         .eq('is_published', true)
         .eq('is_approved', true)
         .order('published_at', { ascending: false })
@@ -65,7 +65,7 @@ function SearchContent() {
       
       let dbQuery = supabase
         .from('news')
-        .select('*')
+        .select('id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views')
         .eq('is_published', true)
         .eq('is_approved', true)
         .order('published_at', { ascending: false });

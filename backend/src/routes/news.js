@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
     const { category, comuna, featured, limit = 20, offset = 0 } = req.query;
     let query = supabase
       .from('news')
-      .select('*')
+      .select('id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views')
       .eq('is_published', true)
       .eq('is_approved', true)
       .order('published_at', { ascending: false })
@@ -32,7 +32,7 @@ router.get('/:slug', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('news')
-      .select('*')
+      .select('id,title,summary,content,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,source_url,slug,views,tags,ai_generated')
       .eq('slug', req.params.slug)
       .single();
     if (error) throw error;

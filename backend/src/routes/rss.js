@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
     const { status, source, limit = 50, offset = 0 } = req.query;
     let query = supabase
       .from('news_inbox')
-      .select('*')
+      .select('id,title,source,source_url,image_url,summary,category,comuna,status,is_duplicate,detected_at')
       .order('detected_at', { ascending: false })
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -79,7 +79,7 @@ router.get('/by-published/:newsId', async (req, res) => {
     if (!HAS_VALID_CONFIG) return res.status(503).json({ error: 'Supabase no configurado' });
     const { data, error } = await supabase
       .from('news_inbox')
-      .select('*')
+      .select('id,title,source,source_url,image_url,summary,content,category,comuna,status,is_duplicate,detected_at')
       .eq('published_news_id', req.params.newsId)
       .maybeSingle(); // Usamos maybeSingle para que no lance error si no encuentra
     if (error) throw error;
@@ -284,7 +284,7 @@ router.post('/:id/approve', async (req, res) => {
     // Obtener item del inbox
     const { data: inboxItem, error: fetchError } = await supabase
       .from('news_inbox')
-      .select('*')
+      .select('id,title,source,source_url,image_url,summary,content,category,comuna,status')
       .eq('id', req.params.id)
       .single();
 

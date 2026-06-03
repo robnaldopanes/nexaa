@@ -18,7 +18,7 @@ export default function AdminEstadisticasPage() {
 
   const loadStats = async () => {
     try {
-      // 1. Conteo de noticias publicadas
+      // 1. Conteo de noticias publicadas (head: true no trae datos, solo count)
       const { count: newsCount } = await supabase
         .from('news')
         .select('*', { count: 'exact', head: true })
@@ -31,19 +31,7 @@ export default function AdminEstadisticasPage() {
         .select('*', { count: 'exact', head: true })
         .eq('is_approved', true);
 
-      // 3. Suma total de vistas
-      const { data: viewsData } = await supabase
-        .from('news')
-        .select('views')
-        .eq('is_published', true);
-      const totalViews = (viewsData || []).reduce((sum, n) => sum + (n.views || 0), 0);
-
-      // 4. Conteo inbox
-      const { count: inboxCount } = await supabase
-        .from('news_inbox')
-        .select('*', { count: 'exact', head: true });
-
-      // 5. Top 5 más vistas
+      // 3. Top 5 más vistas (traer solo esos 5 y sumar sus vistas como aproximación)
       const { data: topNews } = await supabase
         .from('news')
         .select('id, title, views')
@@ -52,7 +40,20 @@ export default function AdminEstadisticasPage() {
         .order('views', { ascending: false })
         .limit(5);
 
-      // 6. Categorías con conteo
+      // 4. Conteo inbox
+      const { count: inboxCount } = await supabase
+        .from('news_inbox')
+        .select('*', { count: 'exact', head: true });
+
+      // 5. Suma total de vistas (traer solo el campo views, no todo el registro)
+      const { data: viewsData } = await supabase
+        .from('news')
+        .select('views')
+        .eq('is_published', true)
+        .eq('is_approved', true);
+      const totalViews = (viewsData || []).reduce((sum, n) => sum + (n.views || 0), 0);
+
+      // 6. Categorías con conteo (traer solo category)
       const { data: catRaw } = await supabase
         .from('news')
         .select('category')
