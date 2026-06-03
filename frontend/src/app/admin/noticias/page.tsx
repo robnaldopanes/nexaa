@@ -56,7 +56,7 @@ export default function AdminNoticiasPage() {
         .order('published_at', { ascending: false })
         .limit(50);
       if (error) throw error;
-      setPublishedList(data || []);
+      setPublishedList((data || []) as any);
     } catch (err) {
       console.error('Error al cargar noticias publicadas:', err);
       setPublishedList([]);

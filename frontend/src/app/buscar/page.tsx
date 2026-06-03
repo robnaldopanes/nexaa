@@ -50,7 +50,7 @@ function SearchContent() {
         .order('published_at', { ascending: false })
         .limit(20);
       if (!error && data) {
-        setNewsList(data);
+        setNewsList(data as any);
       }
     } catch {
       setNewsList([]);
@@ -84,7 +84,7 @@ function SearchContent() {
       const { data, error } = await dbQuery.limit(30);
 
       if (!error && data) {
-        setNewsList(data);
+        setNewsList(data as any);
       } else {
         setNewsList([]);
       }

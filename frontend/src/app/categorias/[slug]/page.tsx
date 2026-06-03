@@ -29,7 +29,7 @@ export default function CategoryPage({ params }: { params: { slug: string } }) {
           .order('published_at', { ascending: false });
 
         if (!error && data) {
-          setNewsList(data);
+          setNewsList(data as any);
         }
       } catch (err) {
         console.error('Error al cargar noticias de categoría:', err);

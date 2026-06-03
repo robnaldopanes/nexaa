@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       .single();
 
     if (!data) return { title: 'Noticia no encontrada' };
-    return generateNewsMetadata(data);
+    return generateNewsMetadata(data as any);
   } catch {
     return { title: 'NEXAA Ñuble' };
   }
@@ -34,7 +34,7 @@ async function fetchNews(slug: string): Promise<NewsItem | null> {
       .select('id,title,summary,content,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,source_url,slug,views,tags,ai_generated')
       .eq('slug', slug)
       .single();
-    return data || null;
+    return (data as any) || null;
   } catch {
     return null;
   }

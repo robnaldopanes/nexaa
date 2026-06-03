@@ -6,9 +6,9 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUB
 
 const BUCKET_NAME = 'news-images';
 
-async function ensureBucket(supabase: ReturnType<typeof createClient>) {
+async function ensureBucket(supabase: any) {
   const { data: buckets } = await supabase.storage.listBuckets();
-  if (!buckets?.some(b => b.name === BUCKET_NAME)) {
+  if (!buckets?.some((b: any) => b.name === BUCKET_NAME)) {
     await supabase.storage.createBucket(BUCKET_NAME, {
       public: true,
       fileSizeLimit: 5 * 1024 * 1024,
@@ -18,7 +18,7 @@ async function ensureBucket(supabase: ReturnType<typeof createClient>) {
 }
 
 async function migrateTable(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   tableName: string,
   folder: string
 ) {
@@ -33,7 +33,7 @@ async function migrateTable(
 
   const results: Array<{ id: string; status: string; error?: string; url?: string }> = [];
 
-  for (const row of rows) {
+  for (const row of (rows as any[])) {
     if (!row.image_url || !row.image_url.startsWith('data:image')) continue;
 
     const matches = row.image_url.match(/^data:image\/([^;]+);base64,(.+)$/);
@@ -72,7 +72,7 @@ async function migrateTable(
 
     const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(uniqueName);
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from(tableName)
       .update({ image_url: urlData.publicUrl })
       .eq('id', row.id);

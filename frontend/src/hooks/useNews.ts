@@ -76,7 +76,7 @@ export function useNews({
         throw fetchError;
       }
 
-      setNews(data || []);
+      setNews((data || []) as any);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Error fetching news'));
       setNews([]);
@@ -119,7 +119,7 @@ export function useNewsBySlug(slug: string): UseNewsBySlugReturn {
           throw new Error('News not found');
         }
 
-        setNews(data);
+        setNews(data as any);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Error fetching news'));
         setNews(null);
