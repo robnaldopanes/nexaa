@@ -52,7 +52,7 @@ export default function AdminNoticiasPage() {
     try {
       const { data, error } = await supabase
         .from('news')
-        .select('id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views')
+        .select('id,title,summary,image_url,category,comuna,is_featured,is_breaking,is_published,published_at,source_name,slug,views')
         .order('published_at', { ascending: false })
         .limit(50);
       if (error) throw error;
