@@ -14,7 +14,7 @@ import PhotoGallery from '@/components/news/PhotoGallery';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
-import { setCachedHomeData, getCachedHomeData, isCacheStale } from '@/lib/newsCache';
+import { setCachedHomeData, getCachedHomeData, getCachedHomeDataStale, isCacheStale, isCacheUsable } from '@/lib/newsCache';
 
 export default function HomeClient() {
   const router = useRouter();
@@ -29,9 +29,9 @@ export default function HomeClient() {
   const [ads, setAds] = useState<AdSpace[]>([]);
   const apiUrl = getApiUrl();
 
-  const loadFromCache = useCallback(() => {
-    const cached = getCachedHomeData();
-    if (cached && !isCacheStale(cached)) {
+  const loadFromCache = useCallback((): { loaded: boolean; needsRefresh: boolean } => {
+    const cached = getCachedHomeDataStale();
+    if (cached && isCacheUsable(cached)) {
       setNationalFeatured(cached.nationalFeatured);
       setFeaturedNewsList(cached.featuredNewsList);
       setLatestNews(cached.latestNews);
@@ -39,22 +39,29 @@ export default function HomeClient() {
       setPhotos(cached.photos);
       setAds(cached.ads);
       setReportaje(cached.reportaje || null);
-      return true;
+      setLoading(false);
+      return { loaded: true, needsRefresh: isCacheStale(cached) };
     }
-    return false;
+    return { loaded: false, needsRefresh: true };
   }, []);
 
   const fetchAndCache = useCallback(async () => {
     try {
       const feedFields = 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views';
 
-      const [nationalRes, featuredRes, latestRes, photosRes, reportajeRes] = await Promise.all([
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 15000)
+      );
+
+      const dataPromise = Promise.all([
         supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_featured', true).eq('comuna', 'Nacional').order('published_at', { ascending: false }).limit(1),
         supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).eq('is_featured', true).order('published_at', { ascending: false }),
         supabase.from('news').select(feedFields).eq('is_published', true).eq('is_approved', true).order('published_at', { ascending: false }).limit(20),
         supabase.from('photos').select('id,title,description,image_url,photographer,comuna,category,likes,is_approved,is_featured,created_at').eq('is_approved', true).order('created_at', { ascending: false }).limit(4),
         supabase.from('news').select('id,title,summary,image_url,category,comuna,published_at,source_name,slug').eq('is_published', true).eq('is_approved', true).eq('category', 'Reportajes').order('published_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
+
+      const [nationalRes, featuredRes, latestRes, photosRes, reportajeRes] = await Promise.race([dataPromise, timeoutPromise]) as Awaited<typeof dataPromise>;
 
       const national = nationalRes.data && nationalRes.data.length > 0 ? nationalRes.data[0] as NewsItem : null;
       const reportajeData = reportajeRes.data ? reportajeRes.data as NewsItem : null;
@@ -122,8 +129,8 @@ export default function HomeClient() {
   }, []);
 
   useEffect(() => {
-    const cached = loadFromCache();
-    if (cached) return;
+    const { loaded, needsRefresh } = loadFromCache();
+    if (loaded && !needsRefresh) return;
     fetchAndCache();
   }, [loadFromCache, fetchAndCache]);
 

@@ -24,7 +24,27 @@ export function getCachedHomeData(): HomeCacheData | null {
 
     const parsed: HomeCacheData = JSON.parse(cached);
 
-    // Si el caché es más viejo que HARD_TTL, descartar
+    if (Date.now() - parsed.timestamp > HARD_TTL) {
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    localStorage.removeItem(CACHE_KEY);
+    return null;
+  }
+}
+
+export function getCachedHomeDataStale(): HomeCacheData | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return null;
+
+    const parsed: HomeCacheData = JSON.parse(cached);
+
     if (Date.now() - parsed.timestamp > HARD_TTL) {
       localStorage.removeItem(CACHE_KEY);
       return null;
@@ -52,4 +72,8 @@ export function setCachedHomeData(data: Omit<HomeCacheData, 'timestamp'>): void 
 
 export function isCacheStale(cache: HomeCacheData): boolean {
   return Date.now() - cache.timestamp > STALE_TTL;
+}
+
+export function isCacheUsable(cache: HomeCacheData): boolean {
+  return Date.now() - cache.timestamp < HARD_TTL;
 }
