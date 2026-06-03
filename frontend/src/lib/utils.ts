@@ -120,9 +120,9 @@ export function getApiUrl(): string {
     return process.env.NEXT_PUBLIC_NEXAA_API_URL;
   }
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:3001`;
+    return `${window.location.protocol}//${window.location.host}`;
   }
-  return 'http://localhost:3001';
+  return '';
 }
 
 export function getNewsUrl(slug: string): string {

@@ -9,6 +9,9 @@ import { getNewsImage, getCategoryIcon, cleanEllipsis } from '@/lib/utils';
 import { generateNewsMetadata, generateNewsSchema } from '@/lib/metadata';
 import { NewsItem } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   try {
     const { data } = await supabaseServer

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 // Deploy: 2026-05-31 02:23:14
 import '@/styles/globals.css';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://celebrated-commitment-production-737c.up.railway.app';
 
@@ -61,6 +62,7 @@ export default function RootLayout({
         <ErrorBoundary>
           {children}
         </ErrorBoundary>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );
