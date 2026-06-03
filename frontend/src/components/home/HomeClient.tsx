@@ -16,20 +16,41 @@ import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
 import { setCachedHomeData, getCachedHomeDataStale, isCacheStale, isCacheUsable } from '@/lib/newsCache';
 
-export default function HomeClient() {
+interface InitialData {
+  nationalFeatured: NewsItem | null;
+  featuredNewsList: NewsItem[];
+  latestNews: NewsItem[];
+  moreNews: NewsItem[];
+  photos: PhotoItem[];
+  ads: AdSpace[];
+  reportaje: NewsItem | null;
+  timestamp: number;
+}
+
+interface HomeClientProps {
+  initialData?: InitialData | null;
+}
+
+export default function HomeClient({ initialData }: HomeClientProps = {}) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const hasInitialData = !!initialData;
+  const [loading, setLoading] = useState(!hasInitialData);
   const [error, setError] = useState<string | null>(null);
-  const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
-  const [moreNews, setMoreNews] = useState<NewsItem[]>([]);
-  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>([]);
+  const [latestNews, setLatestNews] = useState<NewsItem[]>(initialData?.latestNews || []);
+  const [moreNews, setMoreNews] = useState<NewsItem[]>(initialData?.moreNews || []);
+  const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>(initialData?.featuredNewsList || []);
   const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0);
-  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(null);
-  const [reportaje, setReportaje] = useState<NewsItem | null>(null);
-  const [photos, setPhotos] = useState<PhotoItem[]>([]);
-  const [ads, setAds] = useState<AdSpace[]>([]);
+  const [nationalFeatured, setNationalFeatured] = useState<NewsItem | null>(initialData?.nationalFeatured || null);
+  const [reportaje, setReportaje] = useState<NewsItem | null>(initialData?.reportaje || null);
+  const [photos, setPhotos] = useState<PhotoItem[]>(initialData?.photos || []);
+  const [ads, setAds] = useState<AdSpace[]>(initialData?.ads || []);
   const apiUrl = getApiUrl();
   const fetchInProgressRef = useRef(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadFromCache = useCallback((): { loaded: boolean; needsRefresh: boolean } => {
     try {
@@ -190,6 +211,20 @@ export default function HomeClient() {
   }, []);
 
   useEffect(() => {
+    if (hasInitialData && initialData) {
+      setCachedHomeData({
+        nationalFeatured: initialData.nationalFeatured,
+        featuredNewsList: initialData.featuredNewsList,
+        latestNews: initialData.latestNews,
+        moreNews: initialData.moreNews,
+        photos: initialData.photos,
+        ads: initialData.ads,
+        reportaje: initialData.reportaje,
+      });
+      setLoading(false);
+      return;
+    }
+
     const { loaded, needsRefresh } = loadFromCache();
     if (loaded && !needsRefresh) return;
     fetchAndCache();
@@ -250,6 +285,16 @@ export default function HomeClient() {
       }
     });
   }, [ads, apiUrl]);
+
+  if (!mounted) {
+    return (
+      <>
+        <TopAppBar />
+        <main className="pt-14 pb-20 overflow-x-hidden" />
+        <BottomNav />
+      </>
+    );
+  }
 
   if (loading) {
     return (

@@ -1,10 +1,9 @@
-const CACHE_VERSION = 'nexaa-v1';
+const CACHE_VERSION = 'nexaa-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const IMAGES_CACHE = `${CACHE_VERSION}-images`;
 
 const PRECACHE_URLS = [
-  '/',
   '/favicon.jpg',
   '/manifest.json',
   '/icon.jpg',
@@ -13,15 +12,13 @@ const PRECACHE_URLS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(PAGES_CACHE).then((cache) => {
-      return cache.addAll(PRECACHE_URLS).catch(() => {
-        return Promise.all(
-          PRECACHE_URLS.map((url) =>
-            fetch(url, { credentials: 'same-origin' })
-              .then((res) => res.ok ? cache.put(url, res) : null)
-              .catch(() => null)
-          )
-        );
-      });
+      return Promise.all(
+        PRECACHE_URLS.map((url) =>
+          fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+            .then((res) => res.ok ? cache.put(url, res) : null)
+            .catch(() => null)
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
@@ -47,7 +44,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkOnly(request));
     return;
   }
 
@@ -67,20 +64,30 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-async function networkFirst(request) {
+async function networkOnly(request) {
   try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(PAGES_CACHE);
-      cache.put(request, response.clone()).catch(() => {});
-    }
-    return response;
+    const fetchRequest = new Request(request, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    return await fetch(fetchRequest);
   } catch (err) {
     const cached = await caches.match(request);
     if (cached) return cached;
-    const fallback = await caches.match('/');
-    if (fallback) return fallback;
-    return new Response('Offline', { status: 503, statusText: 'Offline' });
+    if (request.mode === 'navigate') {
+      const fallback = await caches.match('/');
+      if (fallback) return fallback;
+    }
+    return new Response(
+      request.mode === 'navigate'
+        ? '<!DOCTYPE html><html><body><h1>Sin conexión</h1><p>Por favor recarga la página.</p></body></html>'
+        : 'Offline',
+      {
+        status: 503,
+        statusText: 'Offline',
+        headers: { 'Content-Type': request.mode === 'navigate' ? 'text/html' : 'text/plain' },
+      }
+    );
   }
 }
 
@@ -100,19 +107,13 @@ async function cacheFirst(request, cacheName) {
   }
 }
 
-async function networkOnly(request) {
-  try {
-    return await fetch(request);
-  } catch (err) {
-    return new Response(JSON.stringify({ error: 'Offline' }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-}
-
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'CLEAR_ALL_CACHES') {
+    caches.keys().then((names) => {
+      names.forEach((name) => caches.delete(name));
+    });
   }
 });
