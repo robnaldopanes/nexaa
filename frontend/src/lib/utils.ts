@@ -116,13 +116,14 @@ export function getCategoryIcon(category: string): string {
 }
 
 export function getApiUrl(): string {
-  if (process.env.NEXT_PUBLIC_NEXAA_API_URL) {
-    return process.env.NEXT_PUBLIC_NEXAA_API_URL;
+  const envUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl;
   }
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.host}`;
   }
-  return '';
+  return envUrl || '';
 }
 
 export function getNewsUrl(slug: string): string {

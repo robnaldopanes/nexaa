@@ -853,7 +853,6 @@ export default function AdminNoticiasPage() {
                   <button
                     onClick={async () => {
                       try {
-                        const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
                         const res = await fetch(`${apiUrl}/api/news/${item.id}`, {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
@@ -896,7 +895,6 @@ export default function AdminNoticiasPage() {
                           label: 'Confirmar',
                           onClick: async () => {
                             try {
-                              const apiUrl = process.env.NEXT_PUBLIC_NEXAA_API_URL || 'http://localhost:3001';
                               const res = await fetch(`${apiUrl}/api/news/${item.id}`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
