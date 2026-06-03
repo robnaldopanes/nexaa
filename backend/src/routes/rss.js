@@ -3,6 +3,10 @@ const router = express.Router();
 const { supabase, HAS_VALID_CONFIG } = require('../utils/supabase');
 const { fetchAllFeeds } = require('../services/rssFetcher');
 const { checkDuplicate } = require('../services/duplicateFilter');
+const { runFullCleanup } = require('../utils/cleanup');
+
+let lastFullCleanup = 0;
+const FULL_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 function noSupabase(res) {
   return res.json({ data: [], count: 0, demo: true, message: 'Supabase no configurado - mostrando datos de demostración' });
@@ -195,10 +199,30 @@ router.post('/fetch', async (req, res) => {
       console.warn('Error en limpieza automática:', cleanErr.message);
     }
 
-    res.json({ 
-      message: `${results.new} nuevas, ${results.duplicates} duplicadas, ${results.skipped_old} omitidas por antiguas, ${results.errors} errores. Limpieza: ${cleaned_old_pending} expiradas, ${cleaned_ignored} eliminadas, ${cleaned_excess} por exceso.`, 
+    // Limpieza completa una vez cada 24h (no en cada fetch)
+    let fullCleanupResult = null;
+    const now = Date.now();
+    if (now - lastFullCleanup > FULL_CLEANUP_INTERVAL_MS) {
+      try {
+        fullCleanupResult = await runFullCleanup();
+        lastFullCleanup = now;
+        if (fullCleanupResult.success && fullCleanupResult.total > 0) {
+          console.log(`[cleanup] Full cleanup: ${fullCleanupResult.total} registros eliminados`, fullCleanupResult.deleted);
+        }
+      } catch (fullCleanErr) {
+        console.warn('[cleanup] Full cleanup error:', fullCleanErr.message);
+      }
+    }
+
+    res.json({
+      message: `${results.new} nuevas, ${results.duplicates} duplicadas, ${results.skipped_old} omitidas por antiguas, ${results.errors} errores. Limpieza: ${cleaned_old_pending} expiradas, ${cleaned_ignored} eliminadas, ${cleaned_excess} por exceso.`,
       ...results,
-      cleanup: { old_pending: cleaned_old_pending, deleted_ignored: cleaned_ignored, excess: cleaned_excess }
+      cleanup: {
+        old_pending: cleaned_old_pending,
+        deleted_ignored: cleaned_ignored,
+        excess: cleaned_excess,
+        full: fullCleanupResult,
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

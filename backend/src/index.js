@@ -22,6 +22,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Endpoint de limpieza (puede ser llamado manualmente o por cron)
+try {
+  const { runFullCleanup } = require('./utils/cleanup');
+  app.post('/api/cleanup', async (req, res) => {
+    try {
+      const result = await runFullCleanup();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+} catch(e) { console.warn('cleanup endpoint failed:', e.message); }
+
 // Rutas con manejo de errores por si algún módulo falla
 try { app.use('/api/news', require('./routes/news')); } catch(e) { console.warn('news route failed:', e.message); }
 try { app.use('/api/photos', require('./routes/photos')); } catch(e) { console.warn('photos route failed:', e.message); }
