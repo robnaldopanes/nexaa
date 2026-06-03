@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import TopAppBar from '@/components/layout/TopAppBar';
 import BottomNav from '@/components/layout/BottomNav';
@@ -14,11 +14,12 @@ import PhotoGallery from '@/components/news/PhotoGallery';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/utils';
 import { NewsItem, PhotoItem, AdSpace } from '@/lib/types';
-import { setCachedHomeData, getCachedHomeData, getCachedHomeDataStale, isCacheStale, isCacheUsable } from '@/lib/newsCache';
+import { setCachedHomeData, getCachedHomeDataStale, isCacheStale, isCacheUsable } from '@/lib/newsCache';
 
 export default function HomeClient() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [latestNews, setLatestNews] = useState<NewsItem[]>([]);
   const [moreNews, setMoreNews] = useState<NewsItem[]>([]);
   const [featuredNewsList, setFeaturedNewsList] = useState<NewsItem[]>([]);
@@ -28,29 +29,60 @@ export default function HomeClient() {
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [ads, setAds] = useState<AdSpace[]>([]);
   const apiUrl = getApiUrl();
+  const fetchInProgressRef = useRef(false);
 
   const loadFromCache = useCallback((): { loaded: boolean; needsRefresh: boolean } => {
-    const cached = getCachedHomeDataStale();
-    if (cached && isCacheUsable(cached)) {
-      setNationalFeatured(cached.nationalFeatured);
-      setFeaturedNewsList(cached.featuredNewsList);
-      setLatestNews(cached.latestNews);
-      setMoreNews(cached.moreNews || []);
-      setPhotos(cached.photos);
-      setAds(cached.ads);
-      setReportaje(cached.reportaje || null);
-      setLoading(false);
-      return { loaded: true, needsRefresh: isCacheStale(cached) };
+    try {
+      const cached = getCachedHomeDataStale();
+      if (cached && isCacheUsable(cached)) {
+        setNationalFeatured(cached.nationalFeatured);
+        setFeaturedNewsList(cached.featuredNewsList || []);
+        setLatestNews(cached.latestNews || []);
+        setMoreNews(cached.moreNews || []);
+        setPhotos(cached.photos || []);
+        setAds(cached.ads || []);
+        setReportaje(cached.reportaje || null);
+        setLoading(false);
+        setError(null);
+        return { loaded: true, needsRefresh: isCacheStale(cached) };
+      }
+    } catch (e) {
+      console.error('Error loading cache:', e);
     }
     return { loaded: false, needsRefresh: true };
   }, []);
 
   const fetchAndCache = useCallback(async () => {
+    if (fetchInProgressRef.current) return;
+    fetchInProgressRef.current = true;
+
     try {
       const feedFields = 'id,title,summary,image_url,category,comuna,is_featured,is_breaking,published_at,source_name,slug,views';
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), 15000)
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+        const cached = getCachedHomeDataStale();
+        if (cached && isCacheUsable(cached)) {
+          setNationalFeatured(cached.nationalFeatured);
+          setFeaturedNewsList(cached.featuredNewsList || []);
+          setLatestNews(cached.latestNews || []);
+          setMoreNews(cached.moreNews || []);
+          setPhotos(cached.photos || []);
+          setAds(cached.ads || []);
+          setReportaje(cached.reportaje || null);
+          setLoading(false);
+          setError(null);
+          return;
+        }
+        setError('No se pudo conectar al servidor. Verifica tu conexión.');
+        setLoading(false);
+        return;
+      }
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 12000)
       );
 
       const dataPromise = Promise.all([
@@ -111,7 +143,7 @@ export default function HomeClient() {
       setMoreNews(moreNewsList);
       setPhotos(mappedPhotos);
       setReportaje(reportajeData);
-      setLoading(false);
+      setError(null);
 
       setCachedHomeData({
         nationalFeatured: national,
@@ -122,16 +154,56 @@ export default function HomeClient() {
         ads: [],
         reportaje: reportajeData,
       });
+
+      setLoading(false);
     } catch (err) {
       console.error('Error fetching home data:', err);
+
+      const cached = getCachedHomeDataStale();
+      if (cached && isCacheUsable(cached) && latestNews.length === 0) {
+        setNationalFeatured(cached.nationalFeatured);
+        setFeaturedNewsList(cached.featuredNewsList || []);
+        setLatestNews(cached.latestNews || []);
+        setMoreNews(cached.moreNews || []);
+        setPhotos(cached.photos || []);
+        setAds(cached.ads || []);
+        setReportaje(cached.reportaje || null);
+        setError(null);
+      } else {
+        setError('No se pudieron cargar las noticias. Toca para reintentar.');
+      }
       setLoading(false);
+    } finally {
+      fetchInProgressRef.current = false;
     }
+  }, []);
+
+  const fetchAndCacheRef = useRef(fetchAndCache);
+  useEffect(() => {
+    fetchAndCacheRef.current = fetchAndCache;
+  }, [fetchAndCache]);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    fetchAndCacheRef.current?.();
   }, []);
 
   useEffect(() => {
     const { loaded, needsRefresh } = loadFromCache();
     if (loaded && !needsRefresh) return;
     fetchAndCache();
+
+    const safetyTimeout = setTimeout(() => {
+      if (fetchInProgressRef.current) {
+        console.warn('Safety timeout: forzando fin de loading');
+        setLoading(false);
+        setError('La carga está tardando demasiado. Toca para reintentar.');
+        fetchInProgressRef.current = false;
+      }
+    }, 20000);
+
+    return () => clearTimeout(safetyTimeout);
   }, [loadFromCache, fetchAndCache]);
 
   useEffect(() => {
@@ -191,6 +263,50 @@ export default function HomeClient() {
                 <div className="h-4 bg-surface-container-highest rounded w-1/2" />
               </div>
             </div>
+            {error && (
+              <div className="bg-error-container rounded-xl p-4 flex flex-col items-center gap-3 mt-4">
+                <span className="material-symbols-outlined text-error text-[32px]">
+                  cloud_off
+                </span>
+                <p className="text-on-error-container text-body-md text-center">{error}</p>
+                <button
+                  onClick={handleRetry}
+                  className="px-5 py-2 bg-primary text-on-primary rounded-lg text-label-md font-label-md font-bold active:scale-95"
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+          </div>
+          <Footer />
+        </main>
+        <BottomNav />
+      </>
+    );
+  }
+
+  if (error && latestNews.length === 0 && featuredNewsList.length === 0) {
+    return (
+      <>
+        <TopAppBar />
+        <main className="pt-14 pb-20 overflow-x-hidden">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] px-margin-mobile text-center">
+            <span className="material-symbols-outlined text-error text-[64px] mb-3">
+              cloud_off
+            </span>
+            <h2 className="text-headline-md font-headline-md text-on-surface mb-2">
+              Sin conexión
+            </h2>
+            <p className="text-body-md text-on-surface-variant mb-4 max-w-xs">
+              {error || 'No se pudieron cargar las noticias. Verifica tu conexión a internet.'}
+            </p>
+            <button
+              onClick={handleRetry}
+              className="px-6 py-2.5 bg-primary text-on-primary rounded-xl text-label-md font-label-md font-bold active:scale-95 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[20px]">refresh</span>
+              Reintentar
+            </button>
           </div>
           <Footer />
         </main>
@@ -203,7 +319,21 @@ export default function HomeClient() {
     <>
       <TopAppBar />
       <main className="pt-14 pb-20 overflow-x-hidden">
-        <div className="mt-stack-md">
+        {error && (
+          <div className="bg-error-container/90 backdrop-blur-sm px-margin-mobile py-2 mt-14 flex items-center justify-between gap-2 text-on-error-container text-label-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="material-symbols-outlined text-[18px] flex-shrink-0">cloud_off</span>
+              <span className="truncate">{error}</span>
+            </div>
+            <button
+              onClick={handleRetry}
+              className="text-primary font-bold text-label-sm flex-shrink-0 active:scale-95 px-2 py-0.5"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+        <div className={error ? 'mt-stack-md' : 'mt-stack-md'}>
           <SearchBar placeholder="Buscar noticias en Chillán..." onSearch={handleSearchSubmit} />
         </div>
             <section className="mt-stack-md">
