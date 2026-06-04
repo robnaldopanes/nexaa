@@ -112,18 +112,20 @@ function extractImageFromContent(html) {
 }
 
 async function fetchAllFeeds() {
-  const articles = [];
-  for (const feed of RSS_FEEDS) {
-    try {
-      const parsed = await parser.parseURL(feed.url);
-      const items = (parsed.items || []).slice(0, 10).map(item => normalizeItem(item, feed));
-      articles.push(...items);
-      console.log(`RSS: ${feed.name} → ${items.length} artículos`);
-    } catch (err) {
-      console.warn(`RSS ${feed.name} error: ${err.message}`);
-    }
-  }
-  return articles;
+  const results = await Promise.allSettled(
+    RSS_FEEDS.map(async (feed) => {
+      try {
+        const parsed = await parser.parseURL(feed.url);
+        const items = (parsed.items || []).slice(0, 10).map(item => normalizeItem(item, feed));
+        console.log(`RSS: ${feed.name} → ${items.length} artículos`);
+        return items;
+      } catch (err) {
+        console.warn(`RSS ${feed.name} error: ${err.message}`);
+        return [];
+      }
+    })
+  );
+  return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
 }
 
 async function scrapeWebPage(url) {
